@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>鏡海導覽 · 鄭家大屋</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans TC",sans-serif;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+#game{position:fixed;top:0;left:0;width:100%;height:100%;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px);overflow:hidden}
+
+/* 背景：鄭家大屋正門漫畫版，全屏 cover（保持門樓居中） */
+.bg{position:absolute;inset:0;background:url('bg_index_gate_comic.jpg') center/cover no-repeat;z-index:1}
+/* 上下漸層暗角，保證文字清晰 */
+.bg::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(10,8,6,.72) 0%,rgba(10,8,6,.18) 26%,rgba(10,8,6,.12) 55%,rgba(10,8,6,.78) 100%)}
+
+/* 標題「鄭家大屋」（上方） */
+.title{
+  position:absolute;top:calc(env(safe-area-inset-top,0px) + 6.5%);left:0;right:0;
+  text-align:center;z-index:5;
+  color:#f3e2bd;font-size:46px;font-weight:800;letter-spacing:14px;text-indent:14px;
+  font-family:"Kaiti SC","STKaiti","KaiTi","Songti SC",serif;
+  text-shadow:0 2px 6px rgba(0,0,0,.85),0 0 26px rgba(212,168,87,.35);
+  transition:opacity .3s ease;
+}
+.title-sub{
+  position:absolute;top:calc(env(safe-area-inset-top,0px) + 14.5%);left:0;right:0;
+  text-align:center;z-index:5;
+  color:rgba(212,168,87,.9);font-size:14px;font-weight:600;letter-spacing:6px;text-indent:6px;
+  transition:opacity .3s ease;
+}
+#game.opened .title,#game.opened .title-sub{opacity:0;pointer-events:none}
+
+/* 「開始探索」按鈕（下方） */
+.start-btn{
+  position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 14%);
+  left:50%;transform:translateX(-50%);
+  z-index:5;min-width:220px;padding:15px 42px;
+  background:rgba(28,24,20,.88);border:1.5px solid rgba(212,168,87,.7);border-radius:999px;
+  color:#f0e2c4;font-size:19px;font-weight:700;letter-spacing:8px;text-indent:8px;
+  font-family:"Kaiti SC","STKaiti","KaiTi","Songti SC",serif;
+  cursor:pointer;
+  transition:opacity .3s ease,transform .15s ease,background .25s ease,border-color .25s ease;
+}
+.start-btn:active{transform:translateX(-50%) scale(.96);background:rgba(48,40,30,.92)}
+#game.opened .start-btn{opacity:0;pointer-events:none}
+
+/* 鄭觀應立繪：自左側滑入，常駐不劃出 */
+.zheng-portrait{
+  position:absolute;left:5%;bottom:2%;height:57%;max-height:470px;
+  transform:translateX(-135%);
+  filter:drop-shadow(-6px 8px 16px rgba(0,0,0,.55));
+  transition:transform .7s cubic-bezier(.2,.8,.3,1);
+  z-index:24;pointer-events:none;
+}
+.zheng-portrait.show{transform:translateX(0)}
+
+/* 對話框：瞬時出現，不淡入 */
+.dialog-box{
+  position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);left:12px;right:12px;
+  min-height:92px;background:rgba(28,24,20,.94);border:1px solid rgba(180,150,100,.35);
+  border-radius:10px;padding:14px 16px;z-index:45;display:none;
+}
+.dialog-box.show{display:block}
+.speaker-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.speaker-name{color:#d4a857;font-size:16px;font-weight:700}
+.dialog-text{color:#e8dcc8;font-size:15px;line-height:1.65;min-height:24px;white-space:pre-line}
+.dialog-hint{position:absolute;bottom:8px;right:14px;color:#8a7a60;font-size:18px;display:none;animation:hintBlink 1.2s ease-in-out infinite}
+@keyframes hintBlink{0%,100%{opacity:.3}50%{opacity:1}}
+
+/* 音量開關（常駐，BGM 與配音共用） */
+.volume-btn{
+  position:absolute;top:calc(env(safe-area-inset-top,0px) + 20px);right:14px;
+  width:44px;height:44px;border-radius:50%;padding:0;
+  background:rgba(28,24,20,.85);border:1px solid rgba(212,168,87,.55);
+  color:#d4a857;font-size:19px;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  z-index:61;cursor:pointer;
+  transition:transform .15s ease,color .2s ease,border-color .2s ease;
+}
+.volume-btn:active{transform:scale(.94)}
+.volume-btn.muted{color:rgba(212,168,87,.45);border-color:rgba(212,168,87,.28)}
+
+/* 全黑轉場 */
+.fade-black{position:absolute;inset:0;background:#000;z-index:99;opacity:0;pointer-events:none;transition:opacity .9s ease}
+.fade-black.show{opacity:1}
+
+/* 地圖面板：自下方滑入 */
+.map-sheet{
+  position:absolute;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);
+  z-index:50;background:rgba(28,24,20,.97);border:1px solid rgba(180,150,100,.4);
+  border-radius:14px;padding:16px 16px 18px;
+  transform:translateY(125%);
+  transition:transform .6s cubic-bezier(.2,.8,.3,1);
+}
+.map-sheet.show{transform:translateY(0)}
+.map-wrap{position:relative}
+.map-img{display:block;width:100%;border-radius:8px}
+/* 榮祿第位置高亮閃爍（脈衝金環＋中心點） */
+.map-pin{position:absolute;left:41.7%;top:55%;width:46px;height:46px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
+.map-pin::before{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  border:2.5px solid #e3b25c;box-shadow:0 0 14px rgba(227,178,61,.95);
+  animation:pinPulse 1.2s ease-out infinite;
+}
+.map-pin::after{content:'';position:absolute;inset:39%;border-radius:50%;background:#e3b25c;box-shadow:0 0 10px rgba(227,178,61,.95)}
+@keyframes pinPulse{0%{transform:scale(.7);opacity:1}70%{transform:scale(1.55);opacity:.45}100%{transform:scale(1.55);opacity:0}}
+.map-guide{margin:14px 0 12px;text-align:center;color:#f0e2c4;font-size:16px;font-weight:600;letter-spacing:1px}
+.map-guide b{color:#e3b25c;font-weight:800}
+.arrive-btn{
+  display:block;width:100%;padding:14px 0;
+  background:rgba(60,44,24,.95);border:1.5px solid rgba(227,178,61,.8);border-radius:999px;
+  color:#ffe9b8;font-size:17px;font-weight:700;letter-spacing:6px;text-indent:6px;
+  cursor:pointer;transition:transform .15s ease,background .25s ease;
+}
+.arrive-btn:active{transform:scale(.97);background:rgba(80,58,30,.95)}
+</style>
+</head>
+<body>
+<div id="game">
+  <div class="bg"></div>
+  <div class="title">鄭家大屋</div>
+  <div class="title-sub">MANDARIN'S HOUSE · 澳門</div>
+  <button class="start-btn" id="startBtn" type="button">開始探索</button>
+
+  <img class="zheng-portrait" id="zhengPortrait" src="zheng_portrait.png" alt="">
+  <div class="dialog-box" id="dialogBox">
+    <div class="speaker-row"><span class="speaker-name">鄭觀應</span></div>
+    <div class="dialog-text" id="dialogText"></div>
+    <div class="dialog-hint" id="dlgHint">▼</div>
+  </div>
+
+  <audio id="bgm" src="bgm_moongate.wav" loop preload="auto"></audio>
+  <audio id="welcomeVoice" src="zheng_welcome1.wav" preload="auto"></audio>
+
+  <button class="volume-btn" id="volumeBtn" type="button" aria-label="開關音量" aria-pressed="false">🔊</button>
+
+  <div class="map-sheet" id="mapSheet">
+    <div class="map-wrap">
+      <img class="map-img" src="map_zheng_sites.png" alt="鄭家大屋地圖">
+      <div class="map-pin"></div>
+    </div>
+    <div class="map-guide">請先前往「<b>榮祿第</b>」</div>
+    <button class="arrive-btn" id="arriveBtn" type="button">已到達</button>
+  </div>
+
+  <div class="fade-black" id="fadeBlack"></div>
+</div>
+<script>
+const BGM_VOL=0.18;
+const LINE='你好，歡迎來到我的老宅，讓我帶你一起看看我住過的地方吧';
+let sceneStarted=false,lineDone=false,mapShown=false,leaving=false,typeTimer=null,audioMuted=false;
+
+const bgm=document.getElementById('bgm');
+const voice=document.getElementById('welcomeVoice');
+const dlgHint=document.getElementById('dlgHint');
+
+function typeWriter(el,text){
+  clearInterval(typeTimer);
+  el.textContent='';let i=0;
+  typeTimer=setInterval(()=>{
+    if(i<text.length){el.textContent+=text[i];i++;}
+    else{clearInterval(typeTimer);typeTimer=null;}
+  },60);
+}
+
+function markDone(){
+  lineDone=true;
+  dlgHint.style.display='block';
+}
+
+function startBgm(){
+  bgm.volume=BGM_VOL;
+  bgm.play().catch(function(){});
+}
+
+/* ===== 開始探索 → 寫一列到 Google 表格（來源 Guli咖啡、名字 海盜寶藏） ===== */
+const SHEET_URL='https://script.google.com/macros/s/AKfycbxJWC1zS1yEK5uvRYE0gmiK_v-VIvShhIb-ZjiS6HVE8nB-Fz1FyNqwasXhyE0tf6NC/exec';
+const SHEET_SECRET='ys-2026';
+/* 中國大陸可用的替代通道：填了 Supabase 就用它，留空則照舊寫 Google 表格 */
+const SUPA_URL='';            // 例如 https://abcdefgh.supabase.co
+const SUPA_KEY='';            // 專案 Settings → API → anon public key
+function p2(n){return (n<10?'0':'')+n;}
+function logStart(){
+  var d=new Date();
+  var payload={
+    secret:SHEET_SECRET,
+    time:d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+' '+p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds()),
+    orderId:'GULI-'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'-'+p2(d.getHours())+p2(d.getMinutes())+p2(d.getSeconds()),
+    buyer:'海盜寶藏',
+    contact:'', pay:'', count:'', total:'', items:'',
+    note:'開始探索',
+    source:'Fill in. cafe'
+  };
+  try{
+    if(SUPA_URL && SUPA_KEY){
+      fetch(SUPA_URL.replace(/\/+$/,'')+'/rest/v1/sessions',{
+        method:'POST', keepalive:true,
+        headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+        body:JSON.stringify({game:'鏡海導覽',buyer:payload.buyer,note:payload.note,source:payload.source})
+      }).catch(function(){});
+      return;
+    }
+    fetch(SHEET_URL,{
+      method:'POST', mode:'no-cors', keepalive:true,
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(payload)
+    }).catch(function(){});
+  }catch(e){}
+}
+
+function enterScene(){
+  if(sceneStarted)return;
+  sceneStarted=true;
+  logStart();
+  document.getElementById('game').classList.add('opened');
+  startBgm();
+  document.getElementById('zhengPortrait').classList.add('show');
+  document.getElementById('dialogBox').classList.add('show');
+  dlgHint.style.display='none';
+  typeWriter(document.getElementById('dialogText'),LINE);
+  voice.currentTime=0;
+  voice.play().catch(function(){setTimeout(markDone,400);});
+}
+
+voice.addEventListener('ended',markDone);
+voice.addEventListener('error',function(){setTimeout(markDone,400);});
+
+document.getElementById('startBtn').addEventListener('click',enterScene);
+
+document.addEventListener('pointerdown',function(){
+  if(!sceneStarted||leaving)return;
+  if(mapShown)return; /* 地圖面板顯示後，全域點擊交由按鈕處理，避免誤觸 */
+  if(!lineDone){
+    /* 打字/配音進行中：補全文字、停掉配音，出 ▼ */
+    if(typeTimer){clearInterval(typeTimer);typeTimer=null;document.getElementById('dialogText').textContent=LINE;}
+    if(!voice.paused && !voice.ended){voice.pause();voice.currentTime=voice.duration||0;}
+    markDone();
+    return;
+  }
+  /* 台詞已結束：同頁進入下一幕——收起對話框與立繪，地圖自下方滑入（無黑幕） */
+  mapShown=true;
+  dlgHint.style.display='none';
+  document.getElementById('dialogBox').classList.remove('show');
+  const portrait=document.getElementById('zhengPortrait');
+  portrait.style.transition='opacity .35s ease';
+  portrait.style.opacity=0;
+  document.getElementById('mapSheet').classList.add('show');
+});
+
+/* 「已到達」：漸暗至全黑，開啟 9.html */
+document.getElementById('arriveBtn').addEventListener('pointerdown',function(e){e.stopPropagation();});
+document.getElementById('arriveBtn').addEventListener('click',function(e){
+  e.stopPropagation();
+  if(leaving)return;
+  leaving=true;
+  document.getElementById('fadeBlack').classList.add('show');
+  setTimeout(function(){location.href='9.html';},950);
+});
+
+/* 音量開關：不誤推劇情 */
+function applyMute(){
+  document.querySelectorAll('audio').forEach(function(a){a.muted=audioMuted;});
+  const btn=document.getElementById('volumeBtn');
+  btn.textContent=audioMuted?'🔇':'🔊';
+  btn.classList.toggle('muted',audioMuted);
+  btn.setAttribute('aria-pressed',audioMuted?'true':'false');
+}
+function toggleVolume(){
+  audioMuted=!audioMuted;
+  applyMute();
+  if(!bgm.paused&&bgm.volume===0){bgm.volume=BGM_VOL;}
+}
+const volumeBtn=document.getElementById('volumeBtn');
+volumeBtn.addEventListener('pointerdown',function(e){e.stopPropagation();});
+volumeBtn.addEventListener('click',function(e){e.stopPropagation();toggleVolume();});
+</script>
+</body>
+</html>

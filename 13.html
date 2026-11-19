@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>鏡海導覽・第二禮・中斷</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","PingFang SC",sans-serif;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+#game{position:fixed;top:0;left:0;width:100%;height:100%;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);overflow:hidden}
+/* 背景三層（本體＋RGB錯位副本） */
+.bg-layer{position:absolute;inset:0;z-index:1;background-size:cover;background-position:center;background-repeat:no-repeat;opacity:0;transition:opacity .8s ease;will-change:transform}
+.bg-layer.show{opacity:1}
+.bg-layer::before{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.38) 0%,transparent 25%,transparent 58%,rgba(0,0,0,.62) 100%)}
+.bg-r,.bg-b{position:absolute;inset:0;z-index:2;background-size:cover;background-position:center;background-repeat:no-repeat;opacity:0;pointer-events:none;mix-blend-mode:screen;transition:opacity .15s ease}
+.bg-r{background-image:url('bg_yuqing.png');transform:translateX(8px)}
+.bg-b{background-image:url('bg_yuqing.png');transform:translateX(-8px)}
+#sceneLabel{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);left:12px;z-index:6;color:#d4a857;font-size:12px;letter-spacing:.12em;background:rgba(28,24,20,.6);border:1px solid rgba(212,168,87,.35);border-radius:6px;padding:4px 10px}
+#zheng{position:absolute;left:2%;bottom:0;height:72%;z-index:5;object-fit:contain;object-position:bottom center;filter:drop-shadow(0 10px 24px rgba(0,0,0,.5));transform:translateX(-14%);opacity:0;transition:transform .7s ease,opacity .7s ease;pointer-events:none}
+#zheng.show{opacity:1;transform:translateX(0)}
+/* 對話框 */
+.dialog-box{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);left:12px;right:12px;min-height:96px;background:rgba(28,24,20,.95);border:1px solid rgba(180,150,100,.35);border-radius:10px;padding:14px 16px;z-index:40;pointer-events:auto;opacity:0;transition:opacity .4s ease;display:block}
+.dialog-box.show{opacity:1}
+.dialog-box.hide{display:none;pointer-events:none}
+.speaker-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.speaker-avatar{width:40px;height:40px;border-radius:50%;object-fit:cover;object-position:top center;border:2px solid rgba(200,170,120,.5);flex-shrink:0}
+.speaker-name{color:#d4a857;font-size:15px;font-weight:700}
+.dialog-text{color:#e8dcc8;font-size:15px;line-height:1.65;min-height:48px}
+.dialog-hint{position:absolute;bottom:8px;right:14px;color:#8a7a60;font-size:18px;animation:hintBlink 1.2s ease-in-out infinite}
+@keyframes hintBlink{0%,100%{opacity:.3}50%{opacity:1}}
+/* 掃描線＋噪點疊層 */
+#scanlines{position:absolute;inset:0;z-index:46;pointer-events:none;display:none;background:repeating-linear-gradient(to bottom,rgba(255,255,255,.045) 0 1px,transparent 1px 4px)}
+#grain{position:absolute;inset:0;z-index:47;pointer-events:none;display:none;background-image:radial-gradient(rgba(255,255,255,.12) 1px,transparent 1.4px);background-size:5px 5px;opacity:.35;animation:grainJitter .12s steps(2) infinite}
+@keyframes grainJitter{0%{background-position:0 0}50%{background-position:3px -2px}100%{background-position:-2px 3px}}
+/* 撕裂條 */
+#glitchBars{position:absolute;inset:0;z-index:48;pointer-events:none;display:none;overflow:hidden}
+.glitch-bar{position:absolute;left:0;width:100%;height:6px;background:linear-gradient(to right,rgba(120,220,255,.22),rgba(255,120,180,.18),rgba(120,220,255,.22));mix-blend-mode:screen;opacity:0;will-change:transform}
+/* 全黑覆蓋 */
+#blackout{position:absolute;inset:0;z-index:90;background:#000;opacity:0;transition:opacity .8s ease;pointer-events:none}
+#blackout.on{opacity:1;pointer-events:auto}
+#blackout.on{opacity:1}
+#ellipsis{position:absolute;inset:0;z-index:91;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.32);font-size:26px;letter-spacing:.5em;opacity:0;transition:opacity 1.2s ease;pointer-events:none}
+#ellipsis.show{opacity:1;animation:hintBlink 2.4s ease-in-out infinite}
+/* 信號中斷打字機 */
+#interruptText{position:absolute;inset:0;z-index:92;display:flex;align-items:center;justify-content:center;color:#cfd8e0;font-size:32px;font-weight:700;letter-spacing:.34em;text-shadow:2px 0 rgba(255,80,80,.35),-2px 0 rgba(80,180,255,.35);opacity:0;transition:opacity .5s ease;pointer-events:none}
+#interruptText.show{opacity:1}
+#interruptText .cursor{display:inline-block;width:14px;height:34px;background:#cfd8e0;margin-left:6px;vertical-align:middle;animation:cursorBlink .9s steps(1) infinite}
+@keyframes cursorBlink{0%,60%{opacity:1}61%,100%{opacity:0}}
+#interruptText{flex-direction:column;gap:26px}
+.interruptSub{color:#d4a857;font-size:21px;font-weight:600;letter-spacing:.22em;text-shadow:1px 0 rgba(255,80,80,.25),-1px 0 rgba(80,180,255,.25)}
+/* 紙條浮現 */
+#signalNote{position:absolute;left:50%;top:50%;width:80%;max-height:78%;object-fit:contain;transform:translate(-50%,-50%) scale(.93);z-index:93;opacity:0;pointer-events:none;filter:drop-shadow(0 16px 34px rgba(0,0,0,.55));transition:opacity 1.4s ease,transform 1.4s ease}
+#wordGrid{position:absolute;left:50%;top:24%;transform:translateX(-50%);display:flex;gap:14px;z-index:96;padding:14px 18px;background:rgba(24,20,16,.72);border:1px solid rgba(180,150,100,.35);border-radius:12px}
+.cell{width:62px;height:62px;border:2px solid rgba(212,168,87,.55);background:rgba(28,24,20,.85);border-radius:8px;color:#e8dcc8;font-size:30px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.cell.filled{border-color:#d4a857;background:rgba(60,48,32,.92)}
+.cell.sel{border-color:#ffd87a;box-shadow:0 0 12px rgba(255,216,122,.45)}
+#wordGrid.win .cell{border-color:#ffd87a;color:#ffd87a;box-shadow:0 0 18px rgba(255,216,122,.55);animation:winPulse .6s ease}
+@keyframes winPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+#candPanel{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);transform:translateX(-50%);display:flex;flex-wrap:wrap;justify-content:center;gap:10px;width:88%;max-width:350px;z-index:96}
+.cand{width:52px;height:52px;border:1px solid rgba(180,150,100,.4);background:rgba(45,38,30,.92);color:#e8dcc8;font-size:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.cand:active{background:rgba(80,65,45,.9)}
+.cand.used{opacity:.25;pointer-events:none}
+#toast{position:absolute;left:50%;top:58%;transform:translateX(-50%);z-index:99;background:rgba(28,24,20,.94);border:1px solid rgba(212,168,87,.5);color:#e8dcc8;font-size:16px;padding:10px 18px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .3s ease;white-space:nowrap}
+#signalNote.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+/* 後門樓地圖面板：自下方上滑，高亮後門樓 */
+.map-sheet{
+  position:absolute;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);
+  z-index:52;background:rgba(28,24,20,.97);border:1px solid rgba(180,150,100,.4);
+  border-radius:14px;padding:16px 16px 18px;
+  transform:translateY(125%);
+  transition:transform .6s cubic-bezier(.2,.8,.3,1);
+}
+.map-sheet.show{transform:translateY(0)}
+.map-wrap{position:relative}
+.map-img{display:block;width:100%;border-radius:8px}
+.map-pin{position:absolute;left:88%;top:41%;width:46px;height:46px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
+.map-pin::before{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  border:2.5px solid #e3b25c;box-shadow:0 0 14px rgba(227,178,61,.95);
+  animation:pinPulse 1.2s ease-out infinite;
+}
+.map-pin::after{content:'';position:absolute;inset:39%;border-radius:50%;background:#e3b25c;box-shadow:0 0 10px rgba(227,178,61,.95)}
+@keyframes pinPulse{0%{transform:scale(.7);opacity:1}70%{transform:scale(1.55);opacity:.45}100%{transform:scale(1.55);opacity:0}}
+.map-guide{margin:14px 0 12px;text-align:center;color:#f0e2c4;font-size:16px;font-weight:600;letter-spacing:1px}
+.map-guide b{color:#e3b25c;font-weight:800}
+.arrive-btn{
+  display:block;width:100%;padding:14px 0;
+  background:rgba(60,44,24,.95);border:1.5px solid rgba(227,178,61,.8);border-radius:999px;
+  color:#ffe9b8;font-size:17px;font-weight:700;letter-spacing:6px;text-indent:6px;
+  cursor:pointer;transition:transform .15s ease,background .25s ease;
+}
+.arrive-btn:active{transform:scale(.97)}
+/* 碎片卡片（與 12.html 同款） */
+#histCard{position:absolute;inset:0;z-index:97;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;padding:24px}
+#histCard.show{display:flex}
+.item-card{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(.9);width:min(82vw,360px);background:rgba(44,30,16,.98);border:2px solid #e3b25c;border-radius:14px;padding:22px 18px;text-align:center;z-index:50;opacity:0;pointer-events:none;transition:opacity .35s ease,transform .35s ease;box-shadow:0 18px 50px rgba(0,0,0,.6)}
+.item-card.show{opacity:1;transform:translate(-50%,-50%) scale(1);pointer-events:auto}
+.item-fig{position:relative;width:118px;margin:0 auto 12px}
+.item-icon{width:118px;height:118px;object-fit:contain;display:block;filter:drop-shadow(0 6px 16px rgba(0,0,0,.45))}
+.item-tag{position:absolute;top:-6px;right:-10px;background:#b23a1e;color:#fff;font-size:11px;font-weight:700;letter-spacing:.05em;border-radius:10px;padding:2px 9px;box-shadow:0 3px 8px rgba(0,0,0,.4)}
+.item-name{color:#ffe9b8;font-size:21px;font-weight:700;letter-spacing:.1em;margin-bottom:10px}
+.item-body{color:#f0e2c4;font-size:14px;line-height:1.85;text-align:left;background:rgba(255,236,190,.08);border-left:3px solid #d4a857;border-radius:4px;padding:10px 12px;margin-bottom:10px;white-space:pre-line}
+.item-desc{color:#e8d5b0;font-size:13px;line-height:1.7}
+.item-tip{margin-top:14px;color:#d4a857;font-size:12px;letter-spacing:.15em;animation:hintBlink 1.2s ease-in-out infinite}
+/* ---------- 畫面18：三頁合一 ---------- */
+#fragMerge{position:absolute;left:50%;top:38%;transform:translateX(-50%);z-index:96;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .8s ease}
+#fragMerge.show{opacity:1}
+.frag-page{width:92px;height:130px;margin:0 -16px;border-radius:6px;background:linear-gradient(160deg,#e8d3a3,#c9a96b 60%,#a97f45);box-shadow:0 8px 22px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-family:"Kaiti SC","STKaiti","PingFang TC",serif;font-size:25px;font-weight:700;color:#5a3d1c;letter-spacing:.2em;border:1px solid rgba(140,100,50,.5);position:relative;transition:transform 1.3s ease,margin 1.3s ease,opacity .5s ease;animation:fragGlow 2.4s ease-in-out infinite}
+.frag-page::after{content:'';position:absolute;inset:0;border-radius:6px;background:radial-gradient(circle at 50% 45%,rgba(255,220,140,.28),transparent 70%)}
+@keyframes fragGlow{0%,100%{filter:drop-shadow(0 0 4px rgba(255,205,120,.45))}50%{filter:drop-shadow(0 0 12px rgba(255,205,120,.85))}}
+#fragMerge.gather .frag-page{margin:0 4px}
+#fragMerge.gather .frag-page:nth-child(1){transform:rotate(-4deg)}
+#fragMerge.gather .frag-page:nth-child(3){transform:rotate(4deg)}
+#fragMerge.merged .frag-page{opacity:0;transform:scale(.4);filter:blur(3px);animation:none}
+#fragMerge.explain .frag-page{opacity:1;margin:0 4px;filter:none;animation:fragGlow 2.4s ease-in-out infinite}
+#fragMerge.explain .frag-page.dim{opacity:.28;animation:none;filter:grayscale(.5) brightness(.75)}
+#fragMerge.explain .frag-page.hl{opacity:1;border-color:#ffd87a;box-shadow:0 0 22px rgba(255,205,120,.8);animation:hlPulse 1.4s ease-in-out infinite}
+@keyframes hlPulse{0%,100%{filter:drop-shadow(0 0 6px rgba(255,215,120,.5))}50%{filter:drop-shadow(0 0 16px rgba(255,225,150,.95))}}
+#fragMerge.sink .frag-page{opacity:0;transform:translateY(24px) scale(.4);animation:none;filter:blur(2px)}
+#mergeBook{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%) scale(.86);z-index:97;width:300px;height:188px;background:linear-gradient(150deg,#e9d6a8,#cdab6e 55%,#b28a4e);border:2px solid #8a6534;border-radius:10px;box-shadow:0 14px 34px rgba(0,0,0,.55);opacity:0;pointer-events:none;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:9px;transition:opacity .8s ease,transform .8s ease;font-family:"Kaiti SC","STKaiti","PingFang TC",serif}
+#mergeBook.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+#mergeBook .book-title{font-size:34px;font-weight:700;color:#5a3d1c;letter-spacing:.34em;text-shadow:0 1px 0 rgba(255,240,200,.6)}
+#mergeBook .book-sub{font-size:13px;color:#7a5c2e;letter-spacing:.28em}
+#mergeGlow{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);width:60px;height:60px;border-radius:50%;background:radial-gradient(circle,rgba(255,225,150,.95),rgba(255,205,110,.4) 55%,transparent 75%);z-index:96;opacity:0;pointer-events:none;transition:opacity .35s ease}
+#mergeGlow.burst{opacity:1;animation:burst 1.1s ease-out forwards}
+@keyframes burst{0%{transform:translate(-50%,-50%) scale(.4);opacity:1}100%{transform:translate(-50%,-50%) scale(9);opacity:0}}
+#lightTrail{position:absolute;left:50%;top:38%;width:26px;height:26px;border-radius:50%;background:radial-gradient(circle,#fff,#ffd87a 45%,transparent 75%);z-index:98;opacity:0;pointer-events:none;filter:drop-shadow(0 0 14px rgba(255,200,90,.9));transition:opacity .2s ease}
+#lightTrail.fly{opacity:1;animation:flyOut 1.25s ease-in forwards}
+@keyframes flyOut{0%{transform:translate(0,0) scale(1)}100%{transform:translate(-46vw,58vh) scale(.45)}}
+#flashGold{position:absolute;inset:0;z-index:99;background:radial-gradient(circle at 50% 40%,rgba(255,236,180,.97),rgba(255,205,110,.88) 60%,#f5d98c);opacity:0;pointer-events:none;transition:opacity .5s ease}
+#flashGold.show{opacity:1}
+#nextTitle{position:absolute;inset:0;z-index:101;display:flex;align-items:center;justify-content:center;color:#e8dcc8;font-size:30px;font-weight:700;letter-spacing:.34em;opacity:0;pointer-events:none;transition:opacity 1s ease;text-shadow:0 0 18px rgba(255,215,120,.4)}
+#nextTitle.show{opacity:1}
+#nextTitle .cursor{display:inline-block;width:12px;height:32px;background:#d4a857;margin-left:8px;vertical-align:middle;animation:cursorBlink .9s steps(1) infinite}
+/* ---------- 獎勵頁面 ---------- */
+#rewardLayer{position:absolute;inset:0;z-index:102;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;opacity:0;pointer-events:none;transition:opacity 1s ease;background:radial-gradient(circle at 50% 42%,rgba(60,42,20,.55),rgba(20,14,8,.86) 72%)}
+#rewardLayer.show{opacity:1;pointer-events:auto}
+.reward-continue{position:relative;color:#d4a857;font-size:15px;letter-spacing:.24em;text-align:center;opacity:0}
+#rewardLayer.show .reward-continue{opacity:1;animation:hintBlink 1.2s ease-in-out .5s infinite}
+.reward-rays{position:absolute;left:50%;top:44%;width:700px;height:700px;transform:translate(-50%,-50%);border-radius:50%;background:conic-gradient(from 0deg,transparent 0deg,rgba(255,215,120,.14) 12deg,transparent 24deg,rgba(255,215,120,.12) 40deg,transparent 54deg,rgba(255,215,120,.15) 78deg,transparent 96deg,rgba(255,215,120,.1) 120deg,transparent 140deg,rgba(255,215,120,.13) 168deg,transparent 188deg,rgba(255,215,120,.11) 214deg,transparent 240deg,rgba(255,215,120,.14) 272deg,transparent 300deg,rgba(255,215,120,.1) 326deg,transparent 352deg);-webkit-mask:radial-gradient(circle,transparent 0 22%,#000 32% 100%);mask:radial-gradient(circle,transparent 0 22%,#000 32% 100%);animation:raysSpin 22s linear infinite}
+@keyframes raysSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.reward-glow{position:absolute;left:50%;top:44%;width:560px;height:560px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,rgba(255,215,120,.16),transparent 62%);animation:rewardPulse 2.6s ease-in-out infinite}
+@keyframes rewardPulse{0%,100%{opacity:.5;transform:translate(-50%,-50%) scale(1)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.14)}}
+.reward-dot{position:absolute;border-radius:50%;background:radial-gradient(circle,#ffe9b0,rgba(255,215,120,.25) 60%,transparent);animation:dotFloat 5s linear infinite;opacity:0}
+@keyframes dotFloat{0%{transform:translateY(40px) scale(.7);opacity:0}15%{opacity:.95}75%{opacity:.3}100%{transform:translateY(-260px) scale(1.15);opacity:0}}
+.fw-spark{position:absolute;left:50%;top:44%;width:7px;height:7px;border-radius:50%;background:radial-gradient(circle,#fff6d8,#ffd87a 55%,transparent 80%);opacity:0;pointer-events:none}
+@keyframes sparkBurst{0%{transform:translate(0,0) scale(.4);opacity:1}70%{opacity:1}100%{transform:translate(var(--tx),var(--ty)) scale(.15);opacity:0}}
+.reward-card{position:relative;width:86%;max-width:340px;background:linear-gradient(160deg,#f6e6bc,#e0c68c 55%,#c9a76a);border:2px solid #8a6534;border-radius:12px;padding:44px 26px 38px;box-shadow:0 18px 44px rgba(0,0,0,.55),0 0 0 1px rgba(255,230,170,.18);text-align:center;font-family:"Kaiti SC","STKaiti","PingFang TC",serif;opacity:0;overflow:hidden}
+.reward-card::after{content:'';position:absolute;inset:0;background:linear-gradient(115deg,transparent 34%,rgba(255,250,220,.5) 50%,transparent 66%);transform:translateX(-130%);animation:cardShine 2.2s ease-in-out .9s 2}
+@keyframes cardShine{0%{transform:translateX(-130%)}60%,100%{transform:translateX(130%)}}
+#rewardLayer.show .reward-card{animation:cardPop .75s cubic-bezier(.2,1.6,.4,1) forwards}
+@keyframes cardPop{0%{transform:scale(.55) translateY(30px);opacity:0}62%{transform:scale(1.07) translateY(-4px);opacity:1}100%{transform:scale(1) translateY(0);opacity:1}}
+.reward-title{font-size:46px;font-weight:700;color:#5a3d1c;letter-spacing:.3em;text-shadow:0 1px 0 rgba(255,240,200,.6);margin-right:-.3em;animation:titleGlow 2s ease-in-out 1s infinite}
+@keyframes titleGlow{0%,100%{text-shadow:0 1px 0 rgba(255,240,200,.6),0 0 8px rgba(255,205,110,.25)}50%{text-shadow:0 1px 0 rgba(255,240,200,.6),0 0 22px rgba(255,205,110,.85)}}
+.reward-sub{margin-top:18px;font-size:17px;line-height:1.9;color:#6d4e22;letter-spacing:.12em}
+.reward-seal{display:inline-block;margin-top:24px;padding:10px 16px 10px 20px;background:#a0352a;color:#f5e6c8;font-size:16px;font-weight:700;letter-spacing:.24em;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.35);transform:rotate(-8deg);animation:sealPop .55s cubic-bezier(.2,1.7,.4,1) .85s backwards,sealShake .5s ease .85s}
+@keyframes sealPop{0%{transform:rotate(-8deg) scale(0);opacity:0}100%{transform:rotate(-8deg) scale(1);opacity:1}}
+@keyframes sealShake{0%,100%{transform:rotate(-8deg) scale(1)}35%{transform:rotate(-6deg) scale(1.12)}55%{transform:rotate(-10deg) scale(1.06)}75%{transform:rotate(-7deg) scale(1.02)}}
+</style>
+</head>
+<body>
+<div id="game">
+  <div class="bg-layer" id="bgLayer"></div>
+  <div class="bg-r" id="bgR"></div>
+  <div class="bg-b" id="bgB"></div>
+  <div id="sceneLabel">第二禮・中斷</div>
+  <img id="zheng" src="zheng_portrait.png" alt="">
+  <div class="dialog-box" id="dlgBox">
+    <div class="speaker-row">
+      <img class="speaker-avatar" id="dlgAvatar" src="zheng_portrait.png" alt="">
+      <span class="speaker-name" id="dlgName">鄭觀應</span>
+    </div>
+    <div class="dialog-text" id="dlgText"></div>
+    <div class="dialog-hint" id="dlgHint" style="display:none">▼</div>
+  </div>
+  <div id="scanlines"></div>
+  <div id="grain"></div>
+  <div id="glitchBars"></div>
+  <div id="blackout"></div>
+  <div id="ellipsis">⋯⋯</div>
+  <div id="interruptText"></div>
+  <img id="signalNote" src="note_signal.png" alt="">
+  <div id="wordGrid" class="word-grid" style="display:none">
+    <div class="cell" data-i="0"></div>
+    <div class="cell" data-i="1"></div>
+    <div class="cell" data-i="2"></div>
+    <div class="cell" data-i="3"></div>
+  </div>
+  <div id="candPanel" class="cand-panel" style="display:none"></div>
+  <div id="histCard">
+    <div class="item-card" id="itemCard">
+      <div class="item-fig">
+        <img class="item-icon" id="itemIcon" src="item_swsy.png" alt="">
+        <span class="item-tag" id="itemTag"></span>
+      </div>
+      <div class="item-name" id="itemName"></div>
+      <div class="item-body" id="itemBody"></div>
+      <div class="item-desc" id="itemDesc"></div>
+      <div class="item-tip">點擊繼續</div>
+    </div>
+  </div>
+  <div id="fragMerge">
+    <div class="frag-page" style="margin-right:-6px">商戰</div>
+    <div class="frag-page">議院</div>
+    <div class="frag-page" style="margin-left:-6px">教育</div>
+  </div>
+  <div id="mergeGlow"></div>
+  <div id="mergeBook">
+    <div class="book-title">盛世危言</div>
+    <div class="book-sub">鄭觀應 著</div>
+  </div>
+  <div id="lightTrail"></div>
+  <div id="flashGold"></div>
+  <div id="nextTitle"><span>第三禮・</span><span class="cursor"></span></div>
+  <div id="rewardLayer">
+    <div class="reward-rays"></div>
+    <div class="reward-glow"></div>
+    <div class="reward-card">
+      <div class="reward-title">恭喜！</div>
+      <div class="reward-sub">你已成功破解<br>鄭家大屋主線謎題</div>
+      <div class="reward-seal">第二禮・完成</div>
+    </div>
+    <div class="reward-continue">點擊繼續</div>
+  </div>
+  <div id="toast"></div>
+  <!-- 謎題前：地圖自下方上滑，高亮後門樓 -->
+  <div class="map-sheet" id="mapSheet">
+    <div class="map-wrap">
+      <img class="map-img" src="map_zheng_sites.png" alt="鄭家大屋地圖">
+      <div class="map-pin"></div>
+    </div>
+    <div class="map-guide">請前往積善堂後側的「<b>後門樓</b>」</div>
+    <button class="arrive-btn" id="arriveBtn" type="button">已到達</button>
+  </div>
+  <audio id="voiceNext" src="zheng_next.wav" preload="auto"></audio>
+  <audio id="voiceFound" src="zheng_found.wav" preload="auto"></audio>
+  <audio id="voiceQingyun" src="zheng_qingyun.wav" preload="auto"></audio>
+  <audio id="voiceRyg" src="zheng_ryg_story.wav" preload="auto"></audio>
+  <audio id="voiceFrag3" src="zheng_frag3.wav" preload="auto"></audio>
+  <audio id="voiceGang" src="zheng_gang.wav" preload="auto"></audio>
+  <audio id="voiceYue" src="zheng_yue.wav" preload="auto"></audio>
+  <audio id="voiceExpl0" src="zheng_expl0.wav" preload="auto"></audio>
+  <audio id="voiceExpl1" src="zheng_expl1.wav" preload="auto"></audio>
+  <audio id="voiceExpl2" src="zheng_expl2.wav" preload="auto"></audio>
+  <audio id="voiceExpl3" src="zheng_expl3.wav" preload="auto"></audio>
+  <audio id="glitchNoise" src="glitch_noise.wav" preload="auto"></audio>
+  <audio id="bgm" src="bgm_moongate.wav" loop preload="auto"></audio>
+</div>
+<script>
+'use strict';
+const LINE='好，那麼接下來。';
+const bgLayer=document.getElementById('bgLayer');
+const bgR=document.getElementById('bgR');
+const bgB=document.getElementById('bgB');
+const dlgBox=document.getElementById('dlgBox');
+const dlgText=document.getElementById('dlgText');
+const dlgHint=document.getElementById('dlgHint');
+const zheng=document.getElementById('zheng');
+const scanlines=document.getElementById('scanlines');
+const grain=document.getElementById('grain');
+const glitchBars=document.getElementById('glitchBars');
+const blackout=document.getElementById('blackout');
+const ellipsis=document.getElementById('ellipsis');
+const interruptText=document.getElementById('interruptText');
+const signalNote=document.getElementById('signalNote');
+const voiceNext=document.getElementById('voiceNext');
+const voiceFound=document.getElementById('voiceFound');
+const voiceQingyun=document.getElementById('voiceQingyun');
+const voiceRyg=document.getElementById('voiceRyg');
+const voiceFrag3=document.getElementById('voiceFrag3');
+const voiceGang=document.getElementById('voiceGang');
+const voiceYue=document.getElementById('voiceYue');
+const explVoices=[
+  document.getElementById('voiceExpl3')
+];
+const glitchNoise=document.getElementById('glitchNoise');
+
+let phase='boot';
+let timer=null;
+let lineDone=false,voiceEnded=false;
+let barTimer=null,shakeTimer=null;
+let intTimer=null,intDone=false;
+
+function typeWriter(text,onDone){
+  clearInterval(timer);
+  dlgText.textContent='';let i=0;
+  timer=setInterval(()=>{
+    if(i<text.length){dlgText.textContent+=text[i];i++;}
+    else{clearInterval(timer);timer=null;if(onDone)onDone();}
+  },35);
+}
+function playVoice(v,onFail){
+  try{
+    v.currentTime=0;
+    const p=v.play();
+    if(p&&p.catch){p.catch(()=>{
+      setTimeout(()=>{
+        try{const p2=v.play();if(p2&&p2.catch){p2.catch(()=>{if(onFail)onFail();});}}
+        catch(e2){if(onFail)onFail();}
+      },60);
+    });}
+  }catch(e){if(onFail)onFail();}
+}
+function showHint(){dlgHint.style.display='block';}
+/* 統一：停止全部配音（點擊跳過/推進時調用，配音隨之停） */
+function stopAllVoices(){
+  ['voiceNext','voiceFound','voiceQingyun','voiceRyg','voiceFrag3','voiceGang','voiceYue',
+   'voiceExpl0','voiceExpl1','voiceExpl2','voiceExpl3','glitchNoise'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){try{el.pause();el.currentTime=0;}catch(e){}}
+  });
+}
+
+/* 信號中斷打字機 */
+function enterInterrupt(){
+  phase='interrupt';
+  ellipsis.classList.remove('show');
+  interruptText.classList.add('show');
+  intDone=false;
+  const TXT='信號中斷';
+  const line1=document.createElement('div');
+  line1.id='interruptLine1';
+  interruptText.innerHTML='';
+  interruptText.appendChild(line1);
+  let i=0;
+  intTimer=setInterval(()=>{
+    if(i<TXT.length){
+      line1.textContent=TXT.slice(0,++i);
+    }else{
+      clearInterval(intTimer);intTimer=null;
+      intDone=true;
+      const c=document.createElement('span');
+      c.className='cursor';
+      line1.appendChild(c);
+      /* 自動接續：第二行 欲復信號，需重點光明 */
+      setTimeout(()=>typeSubLine(),900);
+    }
+  },150);
+}
+function typeSubLine(){
+  const lines=['欲復信號，','需重點光明'];
+  let li=0;
+  (function next(){
+    if(li>=lines.length)return;
+    const sub=document.createElement('div');
+    sub.className='interruptSub';
+    interruptText.appendChild(sub);
+    let i=0;
+    const t2=setInterval(()=>{
+      if(i<lines[li].length){
+        sub.textContent=lines[li].slice(0,++i);
+      }else{
+        clearInterval(t2);
+        li++;
+        if(li>=lines.length){
+          const c=document.createElement('span');
+          c.className='cursor';
+          c.style.height='22px';
+          sub.appendChild(c);
+          /* 文字消失同時紙條浮現 */
+          setTimeout(()=>revealNote(),1100);
+        }
+        setTimeout(next,420);
+      }
+    },180);
+  })();
+}
+/* 文字淡出＋紙條浮現 */
+function revealNote(){
+  phase='note';
+  interruptText.style.transition='opacity .7s ease';
+  interruptText.style.opacity=0;
+  signalNote.classList.add('show');
+  setTimeout(()=>{interruptText.style.display='none';},800);
+  /* 紙條浮現後，下方彈出台詞 */
+  setTimeout(()=>enterLine(),1600);
+}
+/* 紙條揭曉台詞（旁白兩句，點擊推進） */
+const NARRATE_LINES=[
+  '其中，一行字被塗去了…也許找到這行字，就是點亮光明的關鍵？',
+  '而这行字，其实就在这座大宅里....',
+  '去积善堂的后侧，找庭院最里处的一栋二层门楼',
+  '看到那个楼的匾额，你也就知道了答案'
+];
+let lineIdx=0;
+function enterLine(){
+  phase='line';
+  dlgBox.style.zIndex='95';   /* 提到黑幕(90)/紙條(93)之上 */
+  document.getElementById('dlgName').textContent='旁白';
+  document.getElementById('dlgAvatar').style.display='none';
+  dlgBox.classList.remove('hide');
+  dlgBox.classList.add('show');
+  dlgHint.style.display='none';
+  lineIdx=0;
+  mapShown=false;mapDone=false;
+  typeLine();
+}
+
+/* ---------- 謎題前的地圖：自下方上滑，高亮後門樓 ---------- */
+let mapShown=false,mapDone=false;
+function showBackGateMap(){
+  mapShown=true;
+  dlgHint.style.display='none';
+  dlgBox.classList.remove('show');dlgBox.classList.add('hide');
+  document.getElementById('mapSheet').classList.add('show');
+}
+document.getElementById('arriveBtn').addEventListener('pointerdown',e=>{e.stopPropagation();});
+document.getElementById('arriveBtn').addEventListener('click',e=>{
+  e.stopPropagation();
+  if(!mapShown)return;
+  mapShown=false;mapDone=true;
+  document.getElementById('mapSheet').classList.remove('show');
+  showWordPuzzle();
+});
+function typeLine(){
+  lineDone=false;
+  dlgText.textContent='';
+  /* 第三句「去积善堂…门楼」出現時：字條消失、背景顯現 */
+  if(lineIdx===2)setTimeout(revealScene,0);
+  typeWriter(NARRATE_LINES[lineIdx],()=>{lineDone=true;showHint();});
+}
+/* 字條消失，日月光華樓背景顯現（不改對話階段，點擊仍可推進台詞） */
+let sceneShown=false;
+function revealScene(){
+  if(sceneShown)return;
+  sceneShown=true;
+  signalNote.style.transition='opacity .7s ease';
+  signalNote.style.opacity=0;
+  blackout.classList.remove('on');
+  blackout.style.transition='opacity 1.6s ease';
+  bgLayer.style.backgroundImage="url('bg_ryg.png')";
+  bgLayer.style.transition='opacity 1.6s ease';
+  bgLayer.classList.add('show');
+  sceneLabel.textContent='第二禮・日月光華樓';
+  setTimeout(()=>{signalNote.style.display='none';},800);
+}
+
+/* 四格填空：補上被塗去的四個字 */
+const ANSWER_WORD=['日','月','光','華'];
+const CAND_WORD=['日','月','光','華','明','星','旦','復','天','雲','輝','彩'];
+let selCell=null;
+let cellsVal=['','','',''];
+let toastTimer=null;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.style.opacity='1';
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{t.style.opacity='0';},1400);
+}
+function showWordPuzzle(){
+  dlgBox.classList.add('hide');dlgBox.classList.remove('show');
+  const grid=document.getElementById('wordGrid');
+  const panel=document.getElementById('candPanel');
+  cellsVal=['','','',''];selCell=null;
+  grid.classList.remove('win');
+  grid.querySelectorAll('.cell').forEach(c=>{
+    c.textContent='';c.classList.remove('filled','sel');
+    c.onclick=()=>{
+      const i=parseInt(c.dataset.i,10);
+      if(cellsVal[i]){clear(i);selCell=null;return;}
+      selCell=i;
+      grid.querySelectorAll('.cell').forEach(x=>x.classList.remove('sel'));
+      c.classList.add('sel');
+    };
+  });
+  panel.innerHTML='';
+  const cs=[...CAND_WORD].sort(()=>Math.random()-.5);
+  cs.forEach(ch=>{
+    const b=document.createElement('div');
+    b.className='cand';b.textContent=ch;
+    b.onclick=()=>{
+      const grid2=document.getElementById('wordGrid');
+      let i=selCell;
+      if(i===null){i=cellsVal.findIndex(v=>v==='');}
+      if(i<0)return;
+      cellsVal[i]=ch;
+      const c=grid2.children[i];
+      c.textContent=ch;c.classList.add('filled');c.classList.remove('sel');
+      selCell=null;
+      if(cellsVal.every(v=>v!==''))checkWord();
+    };
+    panel.appendChild(b);
+  });
+  grid.style.display='flex';
+  panel.style.display='flex';
+}
+function clear(i){
+  cellsVal[i]='';
+  const c=document.getElementById('wordGrid').children[i];
+  c.textContent='';c.classList.remove('filled');
+}
+function checkWord(){
+  const grid=document.getElementById('wordGrid');
+  if(cellsVal.join('')===ANSWER_WORD.join('')){
+    grid.classList.add('win');
+    showToast('金光乍現：「日月光華」！');
+    /* 底部文字消失 → 鄭觀應自左而入 → 台詞 */
+    setTimeout(()=>{
+      document.getElementById('candPanel').style.display='none';
+      grid.style.display='none';
+      enterZhengFinal();
+    },1500);
+  }else{
+    showToast('再想想…那行被塗去的字');
+    setTimeout(()=>{
+      cellsVal.forEach((_,i)=>{
+        const c=document.getElementById('wordGrid').children[i];
+        c.textContent='';c.classList.remove('filled');
+      });
+      cellsVal=['','','',''];
+    },900);
+  }
+}
+/* 鄭觀應立繪自左滑入＋收尾台詞 */
+const FINAL_LINES=['不错，不错，这里也被你找到了','这四个字出自《尚书大传》虞舜《卿云歌》——「卿云烂兮，纠缦缦兮，日月光华，旦复旦兮」，意为日月光辉、日复一日重放光明','我当年受洋行担保之累，事業中斷，避居此樓「杜門養疴」。樓名取「日月光華」，正是我的自勉——日月有晦，必有復明。這五年，我就在這樓裡，把二十年商場洋務的見聞，整理成《盛世危言》。盼的不只我一人，而是這國勢，也如日月，旦復旦兮。'];
+let finalIdx=0;
+function enterZhengFinal(){
+  zheng.style.transition='none';
+  zheng.style.transform='translateX(-120%)';
+  zheng.classList.add('show');
+  void zheng.offsetWidth;
+  zheng.style.transition='transform .9s ease, opacity .6s ease';
+  zheng.style.transform='translateX(0)';
+  document.getElementById('dlgAvatar').style.display='block';
+  dlgBox.style.zIndex='95';
+  dlgBox.classList.remove('hide');dlgBox.classList.add('show');
+  dlgHint.style.display='none';
+  phase='final';
+  finalIdx=0;
+  lineDone=false;voiceEnded=false;
+  document.getElementById('dlgName').textContent='鄭觀應';
+  typeWriter(FINAL_LINES[0],()=>{lineDone=true;if(voiceEnded)showHint();});
+  playVoice(voiceFound,()=>{voiceEnded=true;if(lineDone)showHint();});
+  setTimeout(()=>{voiceEnded=true;if(lineDone)showHint();},5000);  /* 4.5s＋餘量 */
+}
+/* 樓內著書場景：背景切至日月光華樓內部書房＋配音 */
+function enterRygScene(){
+  bgLayer.style.transition='opacity .8s ease';
+  bgLayer.classList.remove('show');
+  setTimeout(()=>{
+    bgLayer.style.backgroundImage="url('bg_ryg_interior.png')";
+    bgLayer.classList.add('show');
+  },800);
+  sceneLabel.textContent='第二禮・日月光華樓內';
+  voiceRyg.currentTime=0;
+  voiceRyg.play().catch(()=>{});
+}
+/* 碎片 3/3：重點三・教育（格式同 12.html 碎片卡） */
+const FRAG3_NAME='盛世危言碎片';
+const FRAG3_TAG='3/3';
+const FRAG3_BODY='重點三・教育\n「學校者，造就人才之地，治天下之大本也。」\n興學校以開民智，設女學以均教育，\n廢八股之虛文，行格致算學之實科。\n人才之本既立，國勢之基自固。';
+const FRAG3_DESC='《盛世危言》三大重點之三，殘頁一角。';
+function enterHist(){
+  phase='hist';
+  document.getElementById('itemIcon').src='item_swsy.png';
+  document.getElementById('itemTag').textContent=FRAG3_TAG;
+  document.getElementById('itemName').textContent=FRAG3_NAME;
+  document.getElementById('itemBody').textContent=FRAG3_BODY;
+  document.getElementById('itemDesc').textContent=FRAG3_DESC;
+  document.getElementById('histCard').classList.add('show');
+  document.getElementById('itemCard').classList.add('show');
+}
+/* ---------- 畫面18：三頁合一 ---------- */
+const MERGE_LINES=['商戰、議院、教育——此三者，乃《盛世危言》之綱。你既集齊三頁，便知我這一書所謀，不是一人之榮辱，而是這國之新。'];
+let mergeIdx=0;
+function enterMerge(){
+  phase='merge';
+  sceneLabel.textContent='第二禮・盛世危言';
+  const fm=document.getElementById('fragMerge');
+  fm.classList.add('show');
+  setTimeout(()=>{
+    fm.classList.add('gather');          /* 三頁向中央靠攏 */
+    setTimeout(()=>{
+      fm.classList.add('merged');        /* 三頁淡出＋金光迸發＋書卷顯現 */
+      document.getElementById('mergeGlow').classList.add('burst');
+      setTimeout(()=>{
+        document.getElementById('mergeBook').classList.add('show');
+        setTimeout(()=>{
+          document.getElementById('mergeGlow').classList.remove('burst');
+          /* 第一句台詞＋配音 */
+          mergeIdx=0;lineDone=false;voiceEnded=false;
+          dlgBox.classList.remove('hide');dlgBox.classList.add('show');
+          dlgHint.style.display='none';
+          document.getElementById('dlgName').textContent='鄭觀應';
+          typeWriter(MERGE_LINES[0],()=>{lineDone=true;if(voiceEnded)showHint();});
+          playVoice(voiceGang,()=>{voiceEnded=true;if(lineDone)showHint();});
+          setTimeout(()=>{voiceEnded=true;if(lineDone)showHint();},19000);  /* 16.3s＋餘量 */
+        },900);
+      },1200);
+    },1400);
+  },700);
+}
+/* ---------- 畫面18.5：碎片之義（講解） ---------- */
+const EXPL_LINES=[
+  '商戰求富，議院求通，教育求智——富、通、智三者，乃我一生所求的立國之基。你既集齊三頁，便也明白：求己，是求這國之新。'
+];
+const EXPL_TIMEOUTS=[19000];  /* 15.9s＋餘量 */
+let explIdx=0;
+function startExplain(){
+  phase='expl';
+  explIdx=0;
+  const fm=document.getElementById('fragMerge');
+  fm.classList.remove('merged','gather');
+  fm.classList.add('explain');
+  /* 三頁殘影齊亮（不再逐頁復述，三卷之意已明） */
+  fm.querySelectorAll('.frag-page').forEach(p=>{p.classList.add('hl');p.classList.remove('dim');});
+  showExpl(0);
+}
+function showExpl(i){
+  lineDone=false;voiceEnded=false;
+  dlgBox.classList.remove('hide');dlgBox.classList.add('show');
+  dlgHint.style.display='none';
+  document.getElementById('dlgName').textContent='鄭觀應';
+  typeWriter(EXPL_LINES[i],()=>{lineDone=true;if(voiceEnded)showHint();});
+  const v=explVoices[i];
+  playVoice(v,()=>{voiceEnded=true;if(lineDone)showHint();});
+  setTimeout(()=>{voiceEnded=true;if(lineDone)showHint();},EXPL_TIMEOUTS[i]);
+}
+/* 本章結束：收起對話框，定格書卷三頁 → 彈出獎勵頁面（熱烈慶祝） */
+function endChapter(){
+  phase='done';
+  dlgBox.classList.add('hide');dlgBox.classList.remove('show');
+  dlgHint.style.display='none';
+  dlgText.textContent='';
+  setTimeout(showReward,900);
+}
+function showReward(){
+  const layer=document.getElementById('rewardLayer');
+  /* 粒子雨 */
+  for(let i=0;i<26;i++){
+    const d=document.createElement('div');
+    d.className='reward-dot';
+    d.style.left=(8+Math.random()*84)+'%';
+    d.style.top=(45+Math.random()*42)+'%';
+    d.style.width=(3+Math.random()*7)+'px';
+    d.style.height=d.style.width;
+    d.style.animationDelay=(Math.random()*4)+'s';
+    d.style.animationDuration=(3.5+Math.random()*3)+'s';
+    layer.appendChild(d);
+  }
+  layer.classList.add('show');
+  /* 三輪禮花爆發：中心/左下/右下，每輪14顆火花向四面散開 */
+  const spots=[[50,44],[22,66],[78,66]];
+  spots.forEach((sp,round)=>{
+    setTimeout(()=>{
+      for(let i=0;i<14;i++){
+        const s=document.createElement('div');
+        s.className='fw-spark';
+        s.style.left=sp[0]+'%';
+        s.style.top=sp[1]+'%';
+        const ang=Math.random()*Math.PI*2;
+        const dist=70+Math.random()*150;
+        s.style.setProperty('--tx',Math.cos(ang)*dist+'px');
+        s.style.setProperty('--ty',Math.sin(ang)*dist+'px');
+        s.style.width=(4+Math.random()*5)+'px';
+        s.style.height=s.style.width;
+        s.style.animationDelay=(Math.random()*0.12)+'s';
+        s.style.animationDuration=(0.9+Math.random()*0.5)+'s';
+        layer.appendChild(s);
+        setTimeout(()=>s.remove(),1700);
+      }
+    },round*430);
+  });
+}
+/* 點擊獎勵頁 → 跳轉獨立獎勵頁 14.html */
+document.getElementById('rewardLayer').addEventListener('click',()=>{
+  if(phase!=='done')return;
+  location.href='14.html';
+});
+/* 轉場：書卷化流光飛向左下 → 金光過曝 → 黑屏字幕 */
+function flyScene(){
+  dlgBox.classList.add('hide');dlgBox.classList.remove('show');
+  const fm=document.getElementById('fragMerge');
+  fm.classList.add('fly');
+  document.getElementById('mergeBook').classList.remove('show');
+  document.getElementById('lightTrail').classList.add('fly');
+  setTimeout(()=>{
+    document.getElementById('flashGold').classList.add('show');
+    setTimeout(()=>{
+      document.getElementById('flashGold').classList.remove('show');
+      document.getElementById('blackout').classList.add('on');
+      const nt=document.getElementById('nextTitle');
+      nt.style.opacity=1;
+      nt.classList.add('show');
+      phase='done';
+    },650);
+  },1300);
+}
+
+/* 全黑後（自動流程已觸發，此監聽僅保留打字完成後的極弱脈衝） */
+document.getElementById('blackout').addEventListener('click',()=>{
+  try{
+    if(phase==='interrupt'){
+      if(intDone){
+        interruptText.style.opacity=.55;
+        setTimeout(()=>interruptText.style.opacity=1,240);
+      }
+    }
+  }catch(err){console.error(err);}
+});
+
+function enterIntro(){
+  phase='intro';
+  sceneLabel.textContent='第二禮・中斷';
+  bgLayer.style.backgroundImage="url('bg_yuqing.png')";
+  bgLayer.classList.add('show');
+  dlgBox.classList.remove('hide');dlgBox.classList.add('show');
+  dlgHint.style.display='none';
+  lineDone=false;voiceEnded=false;
+  setTimeout(()=>zheng.classList.add('show'),500);
+  typeWriter(LINE,()=>{lineDone=true;if(voiceEnded)showHint();});
+  playVoice(voiceNext,()=>{voiceEnded=true;if(lineDone)showHint();});
+  setTimeout(()=>{voiceEnded=true;if(lineDone)showHint();},3300);  /* 1.78s＋餘量 */
+}
+
+/* ---------- 故障特效：抖動→壞死→全黑 ---------- */
+function startGlitch(){
+  phase='glitch';
+  sceneLabel.textContent='第二禮・中斷';
+  dlgBox.classList.add('hide');dlgBox.classList.remove('show');
+  /* 抖動期間禁用立繪緩動，跟隨畫面 */
+  zheng.style.transition='none';
+  /* 電子雜音（輕量偏實，不炸耳） */
+  glitchNoise.currentTime=0;
+  glitchNoise.volume=.4;
+  glitchNoise.play().catch(()=>{});
+  /* 階段1：抖動 0.9s，越抖越強 */
+  let t=0;
+  const shake=setInterval(()=>{
+    t++;
+    const amp=Math.min(4+t*1.4,16);
+    const dx=(Math.random()*2-1)*amp;
+    const dy=(Math.random()*2-1)*amp*.5;
+    const rot=(Math.random()*2-1)*.6;
+    bgLayer.style.transform='translate('+dx+'px,'+dy+'px) rotate('+rot+'deg)';
+    zheng.style.transform='translateX(0) translate('+(dx*1.6)+'px,'+dy+'px) rotate('+rot+'deg)';
+  },40);
+  /* 階段2：壞死 RGB 錯位＋掃描線＋撕裂條 1.4s */
+  setTimeout(()=>{
+    clearInterval(shake);
+    bgR.style.opacity=.55;
+    bgB.style.opacity=.55;
+    scanlines.style.display='block';
+    grain.style.display='block';
+    glitchBars.style.display='block';
+    let bars=0;
+    barTimer=setInterval(()=>{
+      const bar=document.createElement('div');
+      bar.className='glitch-bar';
+      bar.style.top=(Math.random()*100)+'%';
+      bar.style.height=(2+Math.random()*9)+'px';
+      bar.style.opacity=.7;
+      bar.style.transform='translateX('+(Math.random()*30-15)+'px)';
+      glitchBars.appendChild(bar);
+      setTimeout(()=>{bar.remove();},180);
+      bars++;
+      if(bars>40)clearInterval(barTimer);
+      /* 錯位幅度隨機跳變 */
+      bgR.style.transform='translateX('+(6+Math.random()*14)+'px)';
+      bgB.style.transform='translateX(-'+(6+Math.random()*14)+'px)';
+      /* 立繪同步錯位抖動 */
+      const gx=(Math.random()*2-1)*10;
+      const gy=(Math.random()*2-1)*5;
+      zheng.style.transform='translateX(0) translate('+gx+'px,'+gy+'px)';
+    },45);
+  },900);
+  /* 階段3：全黑 */
+  setTimeout(()=>{
+    clearInterval(barTimer);
+    bgR.style.opacity=0;bgB.style.opacity=0;
+    scanlines.style.display='none';grain.style.display='none';glitchBars.style.display='none';
+    bgLayer.style.transform='';
+    zheng.style.transition='';
+    zheng.style.transform='translateX(-14%)';
+    zheng.classList.remove('show');
+    bgLayer.classList.remove('show');
+    blackout.classList.add('on');
+    /* 雜音淡出停止 */
+    const gv=setInterval(()=>{
+      glitchNoise.volume=Math.max(0,glitchNoise.volume-.05);
+      if(glitchNoise.volume<=0){clearInterval(gv);glitchNoise.pause();glitchNoise.currentTime=0;}
+    },60);
+    setTimeout(()=>{
+      phase='black';
+      ellipsis.classList.add('show');
+      /* 自動觸發：黑屏靜置片刻後打出信號中斷 */
+      setTimeout(()=>enterInterrupt(),1300);
+    },900);
+  },2300);
+}
+
+/* 點擊：台詞→觸發故障 */
+document.getElementById('dlgBox').addEventListener('click',()=>{
+  try{
+    /* 統一：點擊即停當前配音（跳過/推進下一章，配音隨之停下） */
+    stopAllVoices();
+    voiceEnded=true;
+    if(lineDone)showHint();
+    if(phase==='intro'){
+      if(!voiceNext.paused){voiceNext.pause();voiceEnded=true;}
+      if(!lineDone){
+        clearInterval(timer);timer=null;
+        dlgText.textContent=LINE;
+        lineDone=true;
+        if(voiceEnded)showHint();
+        return;
+      }
+      if(!voiceEnded)return;
+      startGlitch();
+      return;
+    }
+    if(phase==='line'){
+      if(mapShown)return;   /* 地圖開著：只認「已到達」按鈕 */
+      if(!lineDone){
+        clearInterval(timer);timer=null;
+        dlgText.textContent=NARRATE_LINES[lineIdx];
+        lineDone=true;
+        showHint();
+        return;
+      }
+      if(lineIdx<NARRATE_LINES.length-1){
+        lineIdx++;
+        typeLine();
+      }else if(!mapDone){
+        showBackGateMap();   /* 最後一句後：先上滑地圖，抵達後才進謎題 */
+      }else{
+        showWordPuzzle();
+      }
+      return;
+    }
+    if(phase==='final'){
+      if(!lineDone){
+        clearInterval(timer);timer=null;
+        dlgText.textContent=FINAL_LINES[finalIdx];
+        lineDone=true;
+        showHint();
+        return;
+      }
+      if(finalIdx<FINAL_LINES.length-1){
+        finalIdx++;
+        lineDone=false;
+        dlgText.textContent='';
+        /* 第二句：卿云歌讲解——自动配配音，打完等配音结束才出 ▼ */
+        if(finalIdx===1){
+          voiceEnded=false;
+          playVoice(voiceQingyun,()=>{voiceEnded=true;if(lineDone)showHint();});
+          setTimeout(()=>{voiceEnded=true;if(lineDone)showHint();},18000);  /* 14.6s＋餘量 */
+          typeWriter(FINAL_LINES[finalIdx],()=>{lineDone=true;if(voiceEnded)showHint();});
+        }else{
+          /* 第三句：鄭觀應自述盛世危言——切入樓內書房場景＋配音 */
+          if(finalIdx===2)setTimeout(enterRygScene,0);
+          typeWriter(FINAL_LINES[finalIdx],()=>{lineDone=true;showHint();});
+        }
+      }else{
+        /* 第三句播完點擊 → 盛世危言・教育碎片卡 */
+        dlgHint.style.display='none';
+        dlgText.textContent='';
+        enterHist();
+      }
+      return;
+    }
+    if(phase==='merge'){
+      if(!lineDone){
+        clearInterval(timer);timer=null;
+        dlgText.textContent=MERGE_LINES[mergeIdx];
+        lineDone=true;
+        showHint();
+        return;
+      }
+      /* 第一句播完 → 畫面18.5：碎片之義講解 */
+      dlgHint.style.display='none';
+      dlgText.textContent='';
+      startExplain();
+      return;
+    }
+    if(phase==='expl'){
+      if(!lineDone){
+        clearInterval(timer);timer=null;
+        dlgText.textContent=EXPL_LINES[explIdx];
+        lineDone=true;
+        showHint();
+        return;
+      }
+      if(explIdx<EXPL_LINES.length-1){
+        explIdx++;
+        showExpl(explIdx);
+      }else{
+        /* 講解播完 → 本章結束 */
+        endChapter();
+      }
+      return;
+    }
+  }catch(err){console.error(err);}
+});
+
+/* 打字完成後的極弱脈衝（自動流程已觸發，無需點擊進入） */
+document.getElementById('blackout').addEventListener('click',()=>{
+  try{
+    if(phase==='interrupt'){
+      if(intDone){
+        interruptText.style.opacity=.55;
+        setTimeout(()=>interruptText.style.opacity=1,240);
+      }
+    }
+  }catch(err){console.error(err);}
+});
+
+/* 碎片卡點擊：先播朗讀配音，播完/跳過後再點收起（同 12.html） */
+let fragCardStage=0;
+document.getElementById('itemCard').addEventListener('pointerdown',()=>{
+  if(phase!=='hist')return;
+  try{
+    const zsw=voiceFrag3;
+    if(fragCardStage===0){
+      fragCardStage=1;
+      playVoice(zsw,()=>{});
+      setTimeout(()=>{fragCardStage=2;},26000);   /* 22.3s＋餘量 */
+      return;
+    }
+    if(fragCardStage===1 && !zsw.paused && !zsw.ended){return;}   /* 朗讀中：不收起 */
+    document.getElementById('histCard').classList.remove('show');
+    document.getElementById('itemCard').classList.remove('show');
+    const t=document.getElementById('toast');
+    t.textContent='碎片 3/3 已收入卷宗';
+    t.classList.add('show');
+    setTimeout(()=>{
+      t.classList.remove('show');
+      setTimeout(enterMerge,1200);
+    },1300);
+  }catch(err){console.error(err);}
+});
+
+/* 開場：不設黑幕與「⋯⋯」，載入即直接進入第一句台詞的畫面 */
+document.addEventListener('pointerdown',()=>{
+  if(phase==='boot'){phase='ready';}
+},{once:true});
+if(phase==='boot'){
+  phase='ready';
+  setTimeout(enterIntro,120);
+}
+
+/* ============ BGM：延續 10 / 10a / 12 同一條音軌 ============ */
+const BGM_VOL=0.18;
+const BGM_KEY='moongateBgmState';
+let bgmReady=false;
+function readBgmState(){
+  try{
+    const raw=sessionStorage.getItem(BGM_KEY);
+    return raw?JSON.parse(raw):null;
+  }catch(e){return null;}
+}
+function saveBgmState(){
+  if(!bgmReady)return;
+  const bgm=document.getElementById('bgm');
+  if(!bgm)return;
+  try{
+    sessionStorage.setItem(BGM_KEY,JSON.stringify({
+      t:bgm.currentTime,
+      muted:bgm.muted,
+      file:bgm.src.split('/').pop()
+    }));
+  }catch(e){}
+}
+function startBgm(){
+  const bgm=document.getElementById('bgm');
+  if(!bgm)return;
+  bgm.volume=BGM_VOL;
+  const st=readBgmState();
+  if(st&&st.file==='bgm_moongate.wav'){
+    bgm.muted=!!st.muted;
+    const seek=function(){
+      if(isFinite(st.t)&&st.t>=0&&isFinite(bgm.duration)&&st.t<bgm.duration){
+        bgm.currentTime=st.t;
+      }
+    };
+    if(bgm.readyState>=1){seek();}
+    else{bgm.addEventListener('loadedmetadata',seek,{once:true});}
+  }
+  bgmReady=true;
+  const p=bgm.play();
+  if(p&&typeof p.catch==='function'){
+    p.catch(function(){
+      const once=function(){
+        document.removeEventListener('pointerdown',once);
+        document.removeEventListener('click',once);
+        bgm.play().catch(function(){});
+      };
+      document.addEventListener('pointerdown',once);
+      document.addEventListener('click',once);
+    });
+  }
+  bgm.addEventListener('timeupdate',saveBgmState);
+  window.addEventListener('pagehide',saveBgmState);
+  window.addEventListener('beforeunload',saveBgmState);
+}
+startBgm();
+</script>
+</body>
+</html>

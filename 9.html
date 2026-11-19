@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>鏡海導覽 · 第二禮・榮祿第</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC",sans-serif;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+#game{position:fixed;top:0;left:0;width:100%;height:100%;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px);overflow:hidden}
+
+/* 背景：全屏 cover */
+.bg{position:absolute;inset:0;background:url('bg_rongludi_v4.jpg') center/cover no-repeat;z-index:1;opacity:0;transition:opacity 1s ease}
+.bg2{background-size:cover;background-position:center;z-index:2}
+.bg3{background-size:cover;background-position:center;z-index:3}
+.bg.show{opacity:1}
+.bg::before{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.28) 0%,transparent 28%,transparent 62%,rgba(0,0,0,.72) 100%)}
+
+/* 場景標籤 */
+.loc-label{position:absolute;top:3%;left:50%;transform:translateX(-50%);background:rgba(28,24,20,.85);border:1px solid rgba(212,168,87,.5);border-radius:999px;padding:8px 20px;color:#d4a857;font-size:13px;font-weight:700;letter-spacing:2px;z-index:5;opacity:0;transition:opacity .6s ease;white-space:nowrap}
+.loc-label.show{opacity:1}
+
+/* 鄭觀應立繪（左側滑入，透明底 PNG） */
+.zheng-portrait{
+  position:absolute;left:0;bottom:0;height:54%;max-height:440px;
+  transform:translateX(-102%);
+  transition:transform .7s cubic-bezier(.2,.8,.3,1);
+  z-index:22;pointer-events:none;
+}
+.zheng-portrait.show{transform:translateX(0)}
+
+/* 小女孩立繪（同左側滑入，透明底 PNG，略小活潑） */
+.girl-portrait{
+  position:absolute;left:4%;bottom:0;height:52%;max-height:420px;
+  transform:translateX(-120%);
+  transition:transform .6s cubic-bezier(.2,.8,.3,1);
+  z-index:21;pointer-events:none;
+}
+.girl-portrait.show{transform:translateX(0)}
+
+/* 發黃考卷卡片（中央彈出，毛筆字逐行陳述＋真/假按鈕） */
+.exam-card{
+  position:absolute;left:50%;top:44%;transform:translate(-50%,-50%) scale(.92);
+  width:88%;max-width:350px;z-index:35;opacity:0;transition:opacity .5s ease,transform .5s ease;
+  background:linear-gradient(160deg,#f3e3bd 0%,#e8cf9a 45%,#d9b87f 100%);
+  border:2px solid #a8844e;border-radius:6px;
+  box-shadow:0 14px 40px rgba(0,0,0,.6);
+  padding:22px 18px 20px;
+  pointer-events:none;
+}
+.exam-card.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.exam-card::before{content:'';position:absolute;left:0;right:0;top:11px;height:1px;background:rgba(120,80,30,.28)}
+.exam-card::after{content:'';position:absolute;left:0;right:0;bottom:11px;height:1px;background:rgba(120,80,30,.28)}
+.exam-title{
+  color:#3a2410;font-size:20px;font-weight:800;text-align:center;letter-spacing:8px;margin-bottom:14px;
+  font-family:"Kaiti SC","STKaiti","KaiTi","Songti SC",serif;
+  text-shadow:1px 1px 0 rgba(255,255,255,.35);
+  opacity:0;transition:opacity .6s ease;
+}
+.exam-title.show{opacity:1}
+.exam-row{
+  position:relative;
+  opacity:0;transform:translateY(6px);transition:opacity .6s ease,transform .6s ease;
+  margin-bottom:12px;
+}
+.exam-row.show{opacity:1;transform:translateY(0)}
+.exam-line{
+  color:#2a1a0c;font-size:15px;line-height:1.8;text-align:center;
+  font-family:"Kaiti SC","STKaiti","KaiTi","Songti SC",serif;
+}
+.exam-choices{display:flex;gap:12px;justify-content:center;margin-top:6px}
+.exam-btn{
+  flex:1;max-width:108px;padding:7px 0;border:1.5px solid #8a6a3c;border-radius:5px;
+  background:rgba(255,248,230,.5);color:#4a2f14;font-size:14px;font-weight:700;
+  font-family:"Kaiti SC","STKaiti","KaiTi","Songti SC",serif;letter-spacing:4px;text-indent:4px;
+  cursor:pointer;pointer-events:auto;transition:background .25s ease,color .25s ease;
+}
+.exam-btn:active{transform:scale(.96)}
+.exam-btn.sel-true{background:#a53a2c;color:#f7ead0;border-color:#7c2719;box-shadow:0 0 0 1.5px #a53a2c}
+.exam-btn.sel-false{background:#3a4a5c;color:#f0ead8;border-color:#2a3744;box-shadow:0 0 0 1.5px #3a4a5c}
+.exam-btn.right{background:#3f6a4a;color:#eef5e8;border-color:#2c4a35;box-shadow:0 0 0 1.5px #3f6a4a}
+.exam-btn.dim{opacity:.4}
+/* 判斷結果：金色大字（覆蓋該行按鈕位置） */
+.exam-verdict{
+  position:absolute;left:0;right:0;top:calc(100% - 36px);text-align:center;
+  font-size:30px;font-weight:900;letter-spacing:10px;text-indent:10px;
+  font-family:"Kaiti SC","STKaiti","KaiTi","Songti SC",serif;
+  color:#e8b64c;
+  text-shadow:0 0 14px rgba(255,200,90,.95),0 0 32px rgba(255,190,70,.6),0 2px 4px rgba(120,80,10,.55);
+  opacity:0;transition:opacity .5s ease;pointer-events:none;
+}
+.exam-verdict.show{opacity:1;animation:verdictGlow .9s ease}
+@keyframes verdictGlow{
+  0%{transform:scale(1.45);filter:brightness(2.2)}
+  100%{transform:scale(1);filter:brightness(1)}
+}
+/* 考卷消散 */
+.exam-card.vanish{opacity:0;transform:translate(-50%,-50%) scale(1.06)}
+/* 全屏金光 */
+.gold-burst{
+  position:absolute;inset:0;z-index:45;pointer-events:none;opacity:0;transition:opacity .45s ease;
+  background:radial-gradient(circle,rgba(255,216,132,.88) 0%,rgba(255,190,90,.45) 38%,rgba(255,180,70,.15) 62%,transparent 78%);
+}
+.gold-burst.show{opacity:1}
+/* 歷史考據卡片（居中央） */
+.hist-card{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.94);
+  width:88%;max-width:352px;z-index:40;opacity:0;transition:opacity .5s ease,transform .5s ease;
+  background:linear-gradient(165deg,#f5e6c4 0%,#ead2a0 55%,#dcc088 100%);
+  border:2px solid #a8844e;border-radius:8px;
+  box-shadow:0 16px 44px rgba(0,0,0,.6);
+  padding:20px 18px 22px;pointer-events:none;
+}
+.hist-card.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.hist-card::before{content:'';position:absolute;left:0;right:0;top:11px;height:1px;background:rgba(120,80,30,.25)}
+.hist-card::after{content:'';position:absolute;left:0;right:0;bottom:11px;height:1px;background:rgba(120,80,30,.25)}
+.hist-card-text{
+  color:#2a1a0c;font-size:14.5px;line-height:2.1;text-align:justify;
+  font-family:"Kaiti SC","STKaiti","KaiTi","Songti SC",serif;
+  text-shadow:1px 1px 0 rgba(255,255,255,.25);
+}
+.exam-hint{
+  display:block;margin:4px auto 0;padding:6px 30px;border:1.5px solid #8a6a3c;border-radius:5px;
+  background:rgba(255,248,230,.55);color:#6b4a20;font-size:13px;font-weight:700;letter-spacing:4px;
+  font-family:"Kaiti SC","STKaiti","KaiTi","Songti SC",serif;cursor:pointer;pointer-events:auto;
+  opacity:0;transition:opacity .6s ease;
+}
+.exam-hint.show{opacity:1}
+.exam-hint:active{transform:scale(.96)}
+
+/* 輕提示 */
+.toast{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:60;
+  background:rgba(28,24,20,.96);color:#e8dcc8;font-size:15px;letter-spacing:1px;line-height:1.7;
+  padding:12px 24px;border-radius:8px;border:1px solid rgba(212,168,87,.5);
+  max-width:84%;text-align:center;
+  opacity:0;transition:opacity .3s ease;pointer-events:none;
+}
+.toast.show{opacity:1}
+
+/* 鄭觀應對話框 */
+.dialog-narr{
+  position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);left:12px;right:12px;
+  background:rgba(28,24,20,.95);border:1px solid rgba(212,168,87,.5);border-radius:10px;
+  padding:12px 14px;z-index:25;opacity:0;transform:translateY(16px);
+  transition:opacity .45s ease,transform .45s ease;pointer-events:none;min-height:88px;
+}
+.dialog-narr.show{opacity:1;transform:translateY(0)}
+.dialog-narr-name{color:#d4a857;font-size:15px;font-weight:700;margin-bottom:6px}
+.dialog-narr-text{color:#e8dcc8;font-size:15px;line-height:1.65;white-space:pre-line}
+.dialog-hint{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);left:0;right:0;text-align:center;color:#d4a857;font-size:15px;font-weight:700;letter-spacing:2px;opacity:0;transition:opacity .4s ease;z-index:26;animation:hintBlink 1.2s ease-in-out infinite}
+.dialog-hint.show{opacity:1}
+@keyframes hintBlink{0%,100%{opacity:.3}50%{opacity:1}}
+
+/* 音量開關（常駐，BGM 與配音共用） */
+.volume-btn{
+  position:absolute;top:calc(env(safe-area-inset-top,0px) + 20px);right:14px;
+  width:44px;height:44px;border-radius:50%;padding:0;
+  background:rgba(28,24,20,.85);border:1px solid rgba(212,168,87,.55);
+  color:#d4a857;font-size:19px;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  z-index:61;cursor:pointer;
+  transition:transform .15s ease,color .2s ease,border-color .2s ease;
+}
+.volume-btn:active{transform:scale(.94)}
+.volume-btn.muted{color:rgba(212,168,87,.45);border-color:rgba(212,168,87,.28)}
+
+/* 全黑轉場：結尾點擊後漸暗至全黑，再跳轉到 10.html */
+.fade-black{position:absolute;inset:0;background:#000;z-index:70;opacity:0;pointer-events:none;transition:opacity .9s ease}
+.fade-black.show{opacity:1}
+
+/* 回廊地圖面板：自下方滑入 */
+.map-sheet{
+  position:absolute;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);
+  z-index:50;background:rgba(28,24,20,.97);border:1px solid rgba(180,150,100,.4);
+  border-radius:14px;padding:16px 16px 18px;
+  transform:translateY(125%);
+  transition:transform .6s cubic-bezier(.2,.8,.3,1);
+}
+.map-sheet.show{transform:translateY(0)}
+.map-wrap{position:relative}
+.map-img{display:block;width:100%;border-radius:8px}
+/* 回廊位置高亮閃爍（脈衝金環＋中心點） */
+.map-pin{position:absolute;left:48%;top:41%;width:46px;height:46px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
+.map-pin::before{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  border:2.5px solid #e3b25c;box-shadow:0 0 14px rgba(227,178,61,.95);
+  animation:pinPulse 1.2s ease-out infinite;
+}
+.map-pin::after{content:'';position:absolute;inset:39%;border-radius:50%;background:#e3b25c;box-shadow:0 0 10px rgba(227,178,61,.95)}
+@keyframes pinPulse{0%{transform:scale(.7);opacity:1}70%{transform:scale(1.55);opacity:.45}100%{transform:scale(1.55);opacity:0}}
+.map-guide{margin:14px 0 12px;text-align:center;color:#f0e2c4;font-size:16px;font-weight:600;letter-spacing:1px}
+.map-guide b{color:#e3b25c;font-weight:800}
+.arrive-btn{
+  display:block;width:100%;padding:14px 0;
+  background:rgba(60,44,24,.95);border:1.5px solid rgba(227,178,61,.8);border-radius:999px;
+  color:#ffe9b8;font-size:17px;font-weight:700;letter-spacing:6px;text-indent:6px;
+  cursor:pointer;transition:transform .15s ease,background .25s ease;
+}
+.arrive-btn:active{transform:scale(.97);background:rgba(80,58,30,.95)}
+</style>
+</head>
+<body>
+<div id="game">
+  <div class="bg" id="bg"></div>
+  <div class="bg bg2" id="bg2" style="background-image:url('bg_houyuan_window.png')"></div>
+  <div class="bg bg3" id="bg3" style="background-image:url('bg_moon_gate.jpg')"></div>
+  <div class="loc-label" id="locLabel">第二禮・榮祿第</div>
+  <img class="zheng-portrait" id="zhengPortrait" src="zheng_portrait.png" alt="">
+  <div class="dialog-narr" id="dialogNarr">
+    <div class="dialog-narr-name" id="narrName">鄭觀應</div>
+    <div class="dialog-narr-text" id="narrText"></div>
+  </div>
+  <div class="dialog-hint" id="dlgHint">▼ 點擊繼續</div>
+  <audio id="voice5" src="zheng_line5.wav" preload="auto"></audio>
+  <audio id="voice6" src="zheng_line6.wav" preload="auto"></audio>
+  <audio id="voice7" src="zheng_line7.wav" preload="auto"></audio>
+  <audio id="hintVoice" src="zheng_hint1.wav" preload="auto"></audio>
+  <audio id="hintVoice2" src="zheng_hint2.wav" preload="auto"></audio>
+  <audio id="hintVoice3" src="zheng_hint3.wav" preload="auto"></audio>
+  <audio id="voice8" src="zheng_line8.wav" preload="auto"></audio>
+  <audio id="voice9" src="zheng_line9.wav" preload="auto"></audio>
+  <audio id="histVoice" src="zheng_hist2.wav" preload="auto"></audio>
+  <audio id="voice10" src="zheng_line10.wav" preload="auto"></audio>
+  <audio id="bgm" src="bgm_moongate.wav" loop preload="auto"></audio>
+
+  <!-- 發黃考卷卡片：三行陳述＋真/假按鈕＋提示 -->
+  <div class="exam-card" id="examCard">
+    <div class="exam-title" id="examTitle">德從何來？</div>
+    <div class="exam-row" id="examRow1">
+      <div class="exam-line" id="examLine1">一、題匾之人，是湘鄉曾文正公。</div>
+      <div class="exam-choices">
+        <button class="exam-btn" data-row="1" data-val="真">真</button>
+        <button class="exam-btn" data-row="1" data-val="假">假</button>
+      </div>
+      <div class="exam-verdict" id="verdict1">假</div>
+    </div>
+    <div class="exam-row" id="examRow2">
+      <div class="exam-line" id="examLine2">二、受匾之家，誥封榮祿大夫。</div>
+      <div class="exam-choices">
+        <button class="exam-btn" data-row="2" data-val="真">真</button>
+        <button class="exam-btn" data-row="2" data-val="假">假</button>
+      </div>
+      <div class="exam-verdict" id="verdict2">真</div>
+    </div>
+    <div class="exam-row" id="examRow3">
+      <div class="exam-line" id="examLine3">三、這塊匾，如今掛在積善堂。</div>
+      <div class="exam-choices">
+        <button class="exam-btn" data-row="3" data-val="真">真</button>
+        <button class="exam-btn" data-row="3" data-val="假">假</button>
+      </div>
+      <div class="exam-verdict" id="verdict3">假</div>
+    </div>
+    <button class="exam-hint" id="examHint">提示</button>
+  </div>
+  <div class="gold-burst" id="goldBurst"></div>
+
+  <!-- 歷史考據卡片（居中央，丁戊奇荒） -->
+  <div class="hist-card" id="histCard">
+    <div class="hist-card-text">1877-78 華北發生了被後世稱為「丁戊奇荒」的大災荒。當時，曾國荃任山西巡撫主持賑災。我和我的父親響應他的號召傾囊相助，這點深受他的感激。於是，在 1881 年，曾國荃為我們題匾表彰，將我的父親鄭文瑞誥封「榮祿大夫」（從一品）。這就是這塊匾額背後的故事。</div>
+  </div>
+  <div class="toast" id="toast"></div>
+  <button class="volume-btn" id="volumeBtn" type="button" aria-label="開關音量" aria-pressed="false">🔊</button>
+
+  <!-- 回廊地圖面板（句6台詞結束後自下方滑入） -->
+  <div class="map-sheet" id="mapSheet">
+    <div class="map-wrap">
+      <img class="map-img" src="map_zheng_sites.png" alt="鄭家大屋地圖">
+      <div class="map-pin"></div>
+    </div>
+    <div class="map-guide">請先前往「<b>回廊</b>」</div>
+    <button class="arrive-btn" id="arriveBtn" type="button">已到達</button>
+  </div>
+
+  <div class="fade-black" id="fadeBlack"></div>
+</div>
+<script>
+let typeTimer=null,currentText='',currentEl=null,dialogShown=false,examShown=false,dialogStarted=false,revealed=false,histShown=false,corridorMapShown=false;
+let dlgQueue=[
+  '自此而入，方是我大宅的主體。',
+  '當年荃公題匾，有人問我鄭家「德從何來」。',
+  '我寫下三句話 —— 兩句假，一句真。你若分辨得出，便知我鄭家立宅之本。',
+  '正是。德者，行之積也；施者，德之表也。',
+  '崇德厚施，這才是我鄭家的立家之本。',
+  '了解了這一點，那便隨我繼續往里走吧。',
+  '製作師\n友情提示：後院的窗戶很出片哦'
+];
+let dlgIdx=0;
+
+function currentVoice(){
+  const map={0:'voice5',1:'voice6',2:'voice7',3:'voice8',4:'voice9',5:'voice10'};
+  return map[dlgIdx]?document.getElementById(map[dlgIdx]):null;
+}
+
+function typeWriter(el,text){
+  clearInterval(typeTimer);
+  el.textContent='';
+  currentEl=el;
+  currentText=text;
+  let i=0;
+  typeTimer=setInterval(()=>{
+    if(i<text.length){el.textContent+=text[i];i++;}
+    else{clearInterval(typeTimer);typeTimer=null;}
+  },60);
+}
+
+function skipTypewriter(){
+  if(typeTimer){
+    clearInterval(typeTimer);
+    typeTimer=null;
+    currentEl.textContent=currentText;
+  }
+}
+
+/* 配音播完才顯示點擊提示（防戛然而止＋防止過早引導點擊） */
+function armHint(){
+  const v=currentVoice();
+  const show=()=>{document.getElementById('dlgHint').classList.add('show');};
+  if(v){
+    v.addEventListener('ended',show,{once:true});
+    /* 兜底：配音已結束（ended 已觸發）但事件在打字完成前發生 */
+    if(v.ended)show();
+  }else{
+    setTimeout(show,300);
+  }
+}
+
+/* 開始一句台詞：打字機＋同聲配音＋配音播完出提示；說話人隨角色切換 */
+function startLine(){
+  document.getElementById('dlgHint').classList.remove('show');
+  document.getElementById('narrName').textContent='鄭觀應';
+  typeWriter(document.getElementById('narrText'),dlgQueue[dlgIdx]);
+  const v=currentVoice();
+  if(v){v.play().catch(()=>{});}
+  armHint();
+}
+
+/* ============ 全篇單一 BGM ＋音量開關（與 5a 同一條音軌） ============ */
+const BGM_VOL=0.18;
+let audioMuted=false;
+const BGM_KEY='moongateBgmState';
+let bgmReady=false;   // 還原完成前不寫入，避免覆蓋前一頁狀態
+
+/* 跨頁延續：把 BGM 播放位置與靜音狀態寫入 sessionStorage */
+function saveBgmState(){
+  if(!bgmReady)return;
+  const bgm=document.getElementById('bgm');
+  if(!bgm)return;
+  try{
+    sessionStorage.setItem(BGM_KEY,JSON.stringify({
+      t:bgm.currentTime,
+      muted:audioMuted,
+      file:bgm.src.split('/').pop()
+    }));
+  }catch(e){}
+}
+function readBgmState(){
+  try{
+    const raw=sessionStorage.getItem(BGM_KEY);
+    return raw?JSON.parse(raw):null;
+  }catch(e){return null;}
+}
+
+function startBgm(){
+  const bgm=document.getElementById('bgm');
+  if(!bgm)return;
+  bgm.volume=BGM_VOL;
+  /* 接軌前一頁：同一條音軌才還原靜音與播放位置 */
+  const st=readBgmState();
+  if(st&&st.file==='bgm_moongate.wav'){
+    audioMuted=!!st.muted;
+    const seek=function(){
+      if(isFinite(st.t)&&st.t>=0&&isFinite(bgm.duration)&&st.t<bgm.duration){
+        bgm.currentTime=st.t;
+      }
+    };
+    if(bgm.readyState>=1){seek();}
+    else{bgm.addEventListener('loadedmetadata',seek,{once:true});}
+  }
+  applyMute();
+  bgmReady=true;
+  const p=bgm.play();
+  if(p&&typeof p.catch==='function'){
+    p.catch(function(){
+      const once=function(){
+        document.removeEventListener('pointerdown',once);
+        document.removeEventListener('click',once);
+        resumeBgm();
+      };
+      document.addEventListener('pointerdown',once);
+      document.addEventListener('click',once);
+    });
+  }
+}
+
+function resumeBgm(){
+  const bgm=document.getElementById('bgm');
+  if(!bgm)return;
+  bgm.volume=BGM_VOL;
+  if(bgm.paused){bgm.play().catch(function(){});}
+}
+
+function applyMute(){
+  document.querySelectorAll('audio').forEach(function(a){a.muted=audioMuted;});
+  const btn=document.getElementById('volumeBtn');
+  if(!btn)return;
+  btn.textContent=audioMuted?'🔇':'🔊';
+  btn.classList.toggle('muted',audioMuted);
+  btn.setAttribute('aria-pressed',audioMuted?'true':'false');
+}
+
+function toggleVolume(){
+  audioMuted=!audioMuted;
+  applyMute();
+  resumeBgm();
+}
+
+(function bindVolumeBtn(){
+  const btn=document.getElementById('volumeBtn');
+  if(!btn)return;
+  btn.addEventListener('pointerdown',function(e){e.stopPropagation();});
+  btn.addEventListener('click',function(e){e.stopPropagation();toggleVolume();});
+})();
+
+/* 持續記錄位置，跳轉時於 pagehide 再存一次，供下一頁接軌 */
+(function bindBgmSave(){
+  const bgm=document.getElementById('bgm');
+  if(!bgm)return;
+  bgm.addEventListener('timeupdate',saveBgmState);
+  bgm.addEventListener('pause',saveBgmState);
+  window.addEventListener('pagehide',saveBgmState);
+  window.addEventListener('beforeunload',saveBgmState);
+})();
+
+/* 考卷卡片：標題＋三行陳述（含真/假按鈕）＋提示按鈕，逐行浮現 */
+function showExam(){
+  if(examShown)return;
+  examShown=true;
+  document.getElementById('dlgHint').classList.remove('show');
+  document.getElementById('examCard').classList.add('show');
+  setTimeout(()=>{document.getElementById('examTitle').classList.add('show');},450);
+  let delay=1400;
+  ['examRow1','examRow2','examRow3'].forEach(id=>{
+    setTimeout(()=>{document.getElementById(id).classList.add('show');},delay);
+    delay+=1300;
+  });
+  setTimeout(()=>{document.getElementById('examHint').classList.add('show');},delay);
+  /* ▼ 不自動出：等待三行全部判定正確後進入揭曉 */
+}
+
+/* 考卷答案：陳述①假、②真、③假（两句假，一句真） */
+const examAnswers={1:'假',2:'真',3:'假'};
+let examCorrect=0;
+
+/* 真/假按鈕：逐行即時判定——答對鎖定變綠，答錯提示可重選；三行全對出 ▼ */
+document.querySelectorAll('.exam-btn').forEach(btn=>{
+  btn.addEventListener('click',e=>{
+    e.stopPropagation();
+    const row=btn.dataset.row;
+    const rowBtns=document.querySelectorAll('.exam-btn[data-row="'+row+'"]');
+    if(btn.classList.contains('right'))return;
+    rowBtns.forEach(b=>b.classList.remove('sel-true','sel-false'));
+    btn.classList.add('sel-'+btn.dataset.val);
+    if(btn.dataset.val===examAnswers[row]){
+      /* 答對：鎖定該行 */
+      rowBtns.forEach(b=>{
+        b.classList.remove('sel-true','sel-false');
+        b.style.pointerEvents='none';
+        if(b===btn)b.classList.add('right');
+        else b.classList.add('dim');
+      });
+      examCorrect++;
+      if(examCorrect===3){
+        setTimeout(revealAnswers,500);
+      }
+    }else{
+      /* 答錯：取消選中，提示可重選 */
+      btn.classList.remove('sel-'+btn.dataset.val);
+      showToast('再想想看。');
+    }
+  });
+});
+
+/* 提示按鈕：提示一→提示二→提示三，各配同聲配音（點三次後提示用盡） */
+let hintLevel=0;
+document.getElementById('examHint').addEventListener('click',e=>{
+  e.stopPropagation();
+  if(hintLevel>=3)return;
+  hintLevel++;
+  const msgs={
+    1:'要知題匾之人，當細看匾額落筆款之處。',
+    2:'如要知道究竟是何人獲封，那麼細看匾額右側，那裡寫著受匾人的身份。',
+    3:'「第」這個字，在古代住宅裏就是府第之意。'
+  };
+  const vids={1:'hintVoice',2:'hintVoice2',3:'hintVoice3'};
+  const t=document.getElementById('toast');
+  t.textContent=msgs[hintLevel];
+  t.classList.add('show');
+  const v=document.getElementById(vids[hintLevel]);
+  if(v){
+    v.play().catch(()=>{});
+    v.addEventListener('ended',()=>{setTimeout(()=>{t.classList.remove('show');},600);},{once:true});
+  }else{
+    setTimeout(()=>{t.classList.remove('show');},4000);
+  }
+});
+
+let toastTimer=null;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{t.classList.remove('show');},2000);
+}
+
+/* 揭曉：三個判斷位依次亮起金色「假・真・假」→ 考卷化金光消散 → 鄭觀應揭曉台詞 */
+function revealAnswers(){
+  if(revealed)return;
+  revealed=true;
+  document.getElementById('dlgHint').classList.remove('show');
+  setTimeout(()=>{document.getElementById('verdict1').classList.add('show');},0);
+  setTimeout(()=>{document.getElementById('verdict2').classList.add('show');},700);
+  setTimeout(()=>{document.getElementById('verdict3').classList.add('show');},1400);
+  setTimeout(()=>{
+    document.getElementById('goldBurst').classList.add('show');
+    document.getElementById('examCard').classList.add('vanish');
+  },2100);
+  setTimeout(()=>{document.getElementById('goldBurst').classList.remove('show');},2900);
+  setTimeout(()=>{document.getElementById('examCard').style.display='none';},3200);
+  setTimeout(()=>{dlgIdx=3;startLine();},3050);
+  /* 句4→句5（崇德厚施）由 advanceDialog 推進 */
+}
+
+/* 句5完成後：紙條回收（考卷已消散、對話框收起），歷史考據卡片居中彈出＋配音 */
+function showHistCard(){
+  if(histShown)return;
+  histShown=true;
+  document.getElementById('dlgHint').classList.remove('show');
+  document.getElementById('dialogNarr').classList.remove('show');
+  const c=document.getElementById('histCard');
+  c.classList.add('show');
+  const v=document.getElementById('histVoice');
+  if(v){
+    v.play().catch(()=>{});
+    v.addEventListener('ended',()=>{document.getElementById('dlgHint').classList.add('show');},{once:true});
+  }else{
+    setTimeout(()=>{document.getElementById('dlgHint').classList.add('show');},800);
+  }
+}
+
+/* 回廊地圖：對話框收起、地圖自下方滑入（無黑幕） */
+function showCorridorMap(){
+  if(corridorMapShown)return;
+  corridorMapShown=true;
+  document.getElementById('dlgHint').classList.remove('show');
+  document.getElementById('dialogNarr').classList.remove('show');
+  document.getElementById('mapSheet').classList.add('show');
+}
+
+/* 「已到達」：直接漸暗至全黑，接 5a.html（略過句7） */
+document.getElementById('arriveBtn').addEventListener('pointerdown',function(e){e.stopPropagation();});
+document.getElementById('arriveBtn').addEventListener('click',function(e){
+  e.stopPropagation();
+  if(!corridorMapShown)return;
+  corridorMapShown=false;
+  document.getElementById('fadeBlack').classList.add('show');
+  setTimeout(()=>{location.href='5a.html';},950);
+});
+
+/* 點擊推進：打字中補完；其餘點擊直接切到下一句（配音同步切斷） */
+function advanceDialog(){
+  if(typeTimer){skipTypewriter();return;}
+  /* 直接推進：當前配音／歷史卡配音仍在播則同步切斷 */
+  const v=currentVoice();
+  if(v && !v.paused && !v.ended){
+    v.pause();
+    if(isFinite(v.duration))v.currentTime=v.duration;
+  }
+  const histV=document.getElementById('histVoice');
+  if(histV && !histV.paused && !histV.ended){
+    histV.pause();
+    if(isFinite(histV.duration))histV.currentTime=histV.duration;
+  }
+  document.getElementById('dlgHint').classList.remove('show');
+  if(dlgIdx===0){
+    dlgIdx=1;startLine();
+  }else if(dlgIdx===1){
+    dlgIdx=2;startLine();
+  }else if(dlgIdx===2&&!examShown){
+    showExam();
+  }else if(dlgIdx===2&&examShown){
+    /* 考卷判定完成後由 revealAnswers 自動進入句4，此處不推進 */
+  }else if(dlgIdx===3){
+    dlgIdx=4;startLine();
+  }else if(dlgIdx===4&&!histShown){
+    showHistCard();
+  }else if(dlgIdx===4&&histShown){
+    /* 歷史卡片展示完：點擊收起卡片，重新彈出對話框，進入句6 */
+    document.getElementById('histCard').classList.remove('show');
+    document.getElementById('dialogNarr').classList.add('show');
+    dlgIdx=5;startLine();
+  }else if(dlgIdx===5){
+    /* 句6台詞結束：先彈回廊地圖（自下方滑入），已到達後再進入句7 */
+    showCorridorMap();
+  }else if(dlgIdx===6){
+    /* 結尾：取消小女孩畫面，點擊後漸暗至全黑，打開 10.html */
+    document.getElementById('fadeBlack').classList.add('show');
+    setTimeout(function(){location.href='10.html';},950);
+  }else{
+    /* 無後續句 */
+  }
+}
+
+/* 首次點擊：才開始台詞＋配音（同時完成音頻解鎖，繞過自動播放限制） */
+/* 其後點擊：僅推進對話（配音由 startLine 統一播放，避免重播）；點考卷按鈕不推進 */
+document.addEventListener('pointerdown',e=>{
+  if(e.target.closest('.exam-btn,.exam-hint'))return;
+  if(!dialogStarted){
+    dialogStarted=true;
+    dialogShown=true;
+    document.getElementById('dialogNarr').classList.add('show');
+    startLine();
+    return;
+  }
+  if(!dialogShown)return;
+  if(corridorMapShown)return; /* 地圖顯示期間全域點擊交由按鈕處理，避免誤觸 */
+  advanceDialog();
+});
+
+window.addEventListener('load',()=>{
+  // 同一 BGM：嘗試自動播放，被攔截則首次手勢補播
+  startBgm();
+  // 通道背景淡入（月門→通道，跨文件轉場以淡入承接）
+  setTimeout(()=>{document.getElementById('bg').classList.add('show');},300);
+  // 場景標籤淡入
+  setTimeout(()=>{document.getElementById('locLabel').classList.add('show');},1100);
+  // 鄭觀應立繪自左側滑入；對話與配音等待玩家首次點擊
+  setTimeout(()=>{document.getElementById('zhengPortrait').classList.add('show');},1600);
+  setTimeout(()=>{document.getElementById('dlgHint').classList.remove('show');},1600);
+});
+</script>
+</body>
+</html>

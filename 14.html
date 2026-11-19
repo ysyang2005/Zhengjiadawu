@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>鏡海導覽・第二禮完成</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+#game{position:fixed;top:0;left:0;width:100%;height:100%;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);overflow:hidden}
+/* ---------- 獎勵頁面 ---------- */
+#rewardLayer{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;opacity:0;pointer-events:none;transition:opacity 1s ease;background:radial-gradient(circle at 50% 42%,rgba(60,42,20,.55),rgba(20,14,8,.86) 72%)}
+#rewardLayer.show{opacity:1;pointer-events:auto}
+.reward-rays{position:absolute;left:50%;top:44%;width:700px;height:700px;transform:translate(-50%,-50%);border-radius:50%;background:conic-gradient(from 0deg,transparent 0deg,rgba(255,215,120,.14) 12deg,transparent 24deg,rgba(255,215,120,.12) 40deg,transparent 54deg,rgba(255,215,120,.15) 78deg,transparent 96deg,rgba(255,215,120,.1) 120deg,transparent 140deg,rgba(255,215,120,.13) 168deg,transparent 188deg,rgba(255,215,120,.11) 214deg,transparent 240deg,rgba(255,215,120,.14) 272deg,transparent 300deg,rgba(255,215,120,.1) 326deg,transparent 352deg);-webkit-mask:radial-gradient(circle,transparent 0 22%,#000 32% 100%);mask:radial-gradient(circle,transparent 0 22%,#000 32% 100%);animation:raysSpin 22s linear infinite}
+@keyframes raysSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.reward-glow{position:absolute;left:50%;top:44%;width:560px;height:560px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,rgba(255,215,120,.16),transparent 62%);animation:rewardPulse 2.6s ease-in-out infinite}
+@keyframes rewardPulse{0%,100%{opacity:.5;transform:translate(-50%,-50%) scale(1)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.14)}}
+.reward-dot{position:absolute;border-radius:50%;background:radial-gradient(circle,#ffe9b0,rgba(255,215,120,.25) 60%,transparent);animation:dotFloat 5s linear infinite;opacity:0}
+@keyframes dotFloat{0%{transform:translateY(40px) scale(.7);opacity:0}15%{opacity:.95}75%{opacity:.3}100%{transform:translateY(-260px) scale(1.15);opacity:0}}
+.fw-spark{position:absolute;left:50%;top:44%;width:7px;height:7px;border-radius:50%;background:radial-gradient(circle,#fff6d8,#ffd87a 55%,transparent 80%);opacity:0;pointer-events:none}
+@keyframes sparkBurst{0%{transform:translate(0,0) scale(.4);opacity:1}70%{opacity:1}100%{transform:translate(var(--tx),var(--ty)) scale(.15);opacity:0}}
+.reward-card{position:relative;width:86%;max-width:340px;background:linear-gradient(160deg,#f6e6bc,#e0c68c 55%,#c9a76a);border:2px solid #8a6534;border-radius:12px;padding:44px 26px 38px;box-shadow:0 18px 44px rgba(0,0,0,.55),0 0 0 1px rgba(255,230,170,.18);text-align:center;font-family:"Kaiti SC","STKaiti","PingFang TC",serif;opacity:0;overflow:hidden}
+.reward-card::after{content:'';position:absolute;inset:0;background:linear-gradient(115deg,transparent 34%,rgba(255,250,220,.5) 50%,transparent 66%);transform:translateX(-130%);animation:cardShine 2.2s ease-in-out .9s 2}
+@keyframes cardShine{0%{transform:translateX(-130%)}60%,100%{transform:translateX(130%)}}
+#rewardLayer.show .reward-card{animation:cardPop .75s cubic-bezier(.2,1.6,.4,1) forwards}
+@keyframes cardPop{0%{transform:scale(.55) translateY(30px);opacity:0}62%{transform:scale(1.07) translateY(-4px);opacity:1}100%{transform:scale(1) translateY(0);opacity:1}}
+.reward-title{font-size:46px;font-weight:700;color:#5a3d1c;letter-spacing:.3em;text-shadow:0 1px 0 rgba(255,240,200,.6);margin-right:-.3em;animation:titleGlow 2s ease-in-out 1s infinite}
+@keyframes titleGlow{0%,100%{text-shadow:0 1px 0 rgba(255,240,200,.6),0 0 8px rgba(255,205,110,.25)}50%{text-shadow:0 1px 0 rgba(255,240,200,.6),0 0 22px rgba(255,205,110,.85)}}
+.reward-sub{margin-top:18px;font-size:17px;line-height:1.9;color:#6d4e22;letter-spacing:.12em}
+.reward-seal{display:inline-block;margin-top:24px;padding:10px 16px 10px 20px;background:#a0352a;color:#f5e6c8;font-size:16px;font-weight:700;letter-spacing:.24em;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.35);transform:rotate(-8deg);animation:sealPop .55s cubic-bezier(.2,1.7,.4,1) .85s backwards,sealShake .5s ease .85s}
+@keyframes sealPop{0%{transform:rotate(-8deg) scale(0);opacity:0}100%{transform:rotate(-8deg) scale(1);opacity:1}}
+@keyframes sealShake{0%,100%{transform:rotate(-8deg) scale(1)}35%{transform:rotate(-6deg) scale(1.12)}55%{transform:rotate(-10deg) scale(1.06)}75%{transform:rotate(-7deg) scale(1.02)}}
+.reward-continue{position:relative;color:#d4a857;font-size:15px;letter-spacing:.24em;text-align:center;opacity:0;transition:opacity .4s ease}
+#rewardLayer.show .reward-continue{opacity:1;animation:hintBlink 1.2s ease-in-out .5s infinite}
+@keyframes hintBlink{0%,100%{opacity:.35}50%{opacity:1}}
+/* ---------- 通關憑證・八折優惠卡（參考 certificate.html 生成邏輯） ---------- */
+#couponWrap{position:absolute;left:50%;top:50%;width:86%;max-width:360px;transform:translate(-50%,135%);opacity:0;transition:transform 1s cubic-bezier(.2,.9,.3,1),opacity .9s ease;z-index:13}
+#couponWrap.show{transform:translate(-50%,-50%);opacity:1}
+.cert-card{position:relative;width:100%;background:linear-gradient(145deg,#f5e6c8 0%,#e8d4a8 40%,#dcc490 100%);border-radius:6px;padding:26px 22px 22px;box-shadow:0 0 0 1px rgba(180,140,60,.6),0 0 0 6px rgba(60,40,15,.9),0 0 0 7px rgba(180,140,60,.4),0 20px 60px rgba(0,0,0,.7),inset 0 0 60px rgba(160,120,50,.15);font-family:"Noto Serif TC","Kaiti SC","STKaiti","PingFang TC",serif;animation:cardIn .8s ease-out}
+@keyframes cardIn{from{opacity:0;transform:translateY(20px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+.corner{position:absolute;width:24px;height:24px;border-color:#8b6914;border-style:solid}
+.corner-tl{top:8px;left:8px;border-width:2px 0 0 2px}
+.corner-tr{top:8px;right:8px;border-width:2px 2px 0 0}
+.corner-bl{bottom:8px;left:8px;border-width:0 0 2px 2px}
+.corner-br{bottom:8px;right:8px;border-width:0 2px 2px 0}
+.cert-header{text-align:center;margin-bottom:12px}
+.cert-emblem{font-size:18px;color:#8b6914;margin-bottom:4px;letter-spacing:4px;animation:shimmer 3s ease-in-out infinite}
+@keyframes shimmer{0%,100%{opacity:.5}50%{opacity:1}}
+.cert-title{font-family:"Cinzel","Noto Serif TC",serif;font-size:17px;font-weight:700;color:#5c3d0e;letter-spacing:2px;margin-bottom:3px}
+.cert-title-cn{font-size:15px;font-weight:700;color:#6b4a12;letter-spacing:3px}
+.cert-divider{display:flex;align-items:center;justify-content:center;gap:10px;margin:10px 0 14px}
+.cert-divider .line{flex:1;height:1px;background:linear-gradient(to right,transparent,#a07830,transparent)}
+.cert-divider .diamond{width:6px;height:6px;background:#a07830;transform:rotate(45deg)}
+.qr-wrapper{display:flex;justify-content:center;margin-bottom:14px}
+.qr-frame{position:relative;padding:10px;background:#fdf8ee;border:2px solid #a07830;border-radius:4px;box-shadow:inset 0 0 20px rgba(160,120,50,.1);width:168px;height:168px;display:flex;align-items:center;justify-content:center}
+.qr-frame::before{content:'';position:absolute;inset:4px;border:1px solid rgba(160,120,50,.3);border-radius:2px;pointer-events:none}
+.qr-img{display:block;width:146px;height:146px;object-fit:contain}
+.cert-info{text-align:center}
+.info-row{display:flex;align-items:flex-start;justify-content:center;gap:8px;margin-bottom:7px;font-size:12.5px;color:#5c3d0e;line-height:1.6}
+.info-label{font-weight:700;color:#7a5210;white-space:nowrap}
+.info-value{color:#4a3208}
+.info-highlight{color:#b8860b;font-weight:700}
+.cert-footer{text-align:center;margin-top:16px;padding-top:12px;border-top:1px dashed rgba(160,120,50,.4)}
+.footer-brand{font-family:"Cinzel",serif;font-size:10px;color:#8b6914;letter-spacing:3px;font-weight:600}
+.footer-sub{font-size:12px;color:#5c3d0e;margin-top:3px;letter-spacing:1px;font-weight:600}
+.cert-hint{position:relative;margin-top:16px;text-align:center;color:rgba(255,230,180,.75);font-size:11px;letter-spacing:1px}
+/* ---------- 支線挑戰按鈕（殘頁信封樣式） ---------- */
+.side-quest-btn{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;margin:18px auto 0;padding:11px 26px;background:linear-gradient(150deg,#f3e2b6 0%,#e6cf9c 55%,#ddc48e 100%);border:1.5px solid #8a6534;border-radius:6px;color:#5c3d0e;cursor:pointer;font-family:"Noto Serif TC","Kaiti SC",serif;box-shadow:0 0 0 4px rgba(60,40,15,.55),0 8px 22px rgba(0,0,0,.45),inset 0 0 18px rgba(160,120,50,.18);opacity:0;pointer-events:none;transition:opacity .6s ease,transform .3s ease;-webkit-user-select:none;user-select:none}
+.side-quest-btn.show{opacity:1;pointer-events:auto;animation:sqBob 2.6s ease-in-out infinite}
+@keyframes sqBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.side-quest-btn:active{transform:scale(.96)}
+.side-quest-btn::after{content:'';position:absolute;left:7px;top:6px;width:52%;height:8px;background:rgba(160,120,50,.14);transform:rotate(-3deg);pointer-events:none;border-radius:2px}
+.sq-icon{font-size:18px;color:#7a5210}
+.sq-text{font-size:15px;font-weight:700;letter-spacing:.16em;color:#5c3d0e}
+.sq-sub{font-size:11px;font-weight:700;color:#8b6914;letter-spacing:.14em;margin-top:1px}
+/* ---------- 轉頁黑幕（14 → 15） ---------- */
+#pageFade{position:absolute;inset:0;z-index:80;background:#000;opacity:0;pointer-events:none;transition:opacity .9s ease}
+#pageFade.show{opacity:1;pointer-events:auto}
+</style>
+</head>
+<body>
+<div id="game">
+  <div id="rewardLayer">
+    <div class="reward-rays"></div>
+    <div class="reward-glow"></div>
+    <div class="reward-card">
+      <div class="reward-title">恭喜！</div>
+      <div class="reward-sub">你已成功破解<br>鄭家大屋主線謎題</div>
+      <div class="reward-seal">第二禮・完成</div>
+    </div>
+    <div class="reward-continue">點擊繼續</div>
+  </div>
+  <div id="couponWrap">
+    <div class="cert-card">
+      <div class="corner corner-tl"></div>
+      <div class="corner corner-tr"></div>
+      <div class="corner corner-bl"></div>
+      <div class="corner corner-br"></div>
+      <div class="cert-header">
+        <div class="cert-emblem">⚜ GLOBALFUN GO ⚜</div>
+        <div class="cert-title">CLEARANCE CERTIFICATE</div>
+        <div class="cert-title-cn">通　關　憑　證</div>
+      </div>
+      <div class="cert-divider">
+        <div class="line"></div>
+        <div class="diamond"></div>
+        <div class="line"></div>
+      </div>
+      <div class="qr-wrapper">
+        <div class="qr-frame">
+          <img class="qr-img" src="coupon_qr.png" alt="通關憑證 QR Code">
+        </div>
+      </div>
+      <div class="cert-info">
+        <div class="info-row">
+          <span class="info-label">合作夥伴</span>
+          <span class="info-value">Guli 咖啡</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">優惠內容</span>
+          <span class="info-value">通關享 <span class="info-highlight">八折</span> 優惠</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">使用方式</span>
+          <span class="info-value">店家掃碼確認後生效</span>
+        </div>
+      </div>
+      <div class="cert-footer">
+        <div class="footer-brand">GLOBALFUN GO</div>
+        <div class="footer-sub">澳門城市解密 · 實景城市解謎</div>
+      </div>
+    </div>
+    <div class="cert-hint">
+      <div style="font-weight:700;letter-spacing:2px">請截圖保存</div>
+      <div style="margin-top:4px">請向店員出示此憑證，由店員掃碼核銷</div>
+    </div>
+    <button class="side-quest-btn" id="sideQuestBtn" type="button">
+      <span class="sq-icon">✉</span>
+      <span class="sq-text">支線挑戰</span>
+      <span class="sq-sub">月門填字</span>
+    </button>
+  </div>
+  <div id="pageFade"></div>
+</div>
+<script>
+'use strict';
+function showReward(){
+  const layer=document.getElementById('rewardLayer');
+  /* 粒子雨 */
+  for(let i=0;i<26;i++){
+    const d=document.createElement('div');
+    d.className='reward-dot';
+    d.style.left=(8+Math.random()*84)+'%';
+    d.style.top=(45+Math.random()*42)+'%';
+    d.style.width=(3+Math.random()*7)+'px';
+    d.style.height=d.style.width;
+    d.style.animationDelay=(Math.random()*4)+'s';
+    d.style.animationDuration=(3.5+Math.random()*3)+'s';
+    layer.appendChild(d);
+  }
+  layer.classList.add('show');
+  /* 三輪禮花爆發 */
+  const spots=[[50,44],[22,66],[78,66]];
+  spots.forEach((sp,round)=>{
+    setTimeout(()=>{
+      for(let i=0;i<14;i++){
+        const s=document.createElement('div');
+        s.className='fw-spark';
+        s.style.left=sp[0]+'%';
+        s.style.top=sp[1]+'%';
+        const ang=Math.random()*Math.PI*2;
+        const dist=70+Math.random()*150;
+        s.style.setProperty('--tx',Math.cos(ang)*dist+'px');
+        s.style.setProperty('--ty',Math.sin(ang)*dist+'px');
+        s.style.width=(4+Math.random()*5)+'px';
+        s.style.height=s.style.width;
+        s.style.animationDelay=(Math.random()*0.12)+'s';
+        s.style.animationDuration=(0.9+Math.random()*0.5)+'s';
+        layer.appendChild(s);
+        setTimeout(()=>s.remove(),1700);
+      }
+    },round*430);
+  });
+}
+/* 進入即慶祝 */
+showReward();
+/* 點擊繼續：中央卡片消失 → 通關憑證八折卡自下而上浮現 */
+document.getElementById('rewardLayer').addEventListener('click',()=>{
+  const card=document.querySelector('.reward-card');
+  const cont=document.querySelector('.reward-continue');
+  card.style.transition='opacity .5s ease,transform .5s ease';
+  card.style.opacity='0';
+  card.style.transform='scale(.86)';
+  cont.style.opacity='0';
+  setTimeout(()=>{
+    document.getElementById('couponWrap').classList.add('show');
+    /* 憑證卡上浮完成後，支線挑戰按鈕淡入 */
+    setTimeout(()=>{
+      document.getElementById('sideQuestBtn').classList.add('show');
+    },900);
+  },480);
+});
+/* 支線挑戰：漸暗至全黑，直接接 15.html（月門填字） */
+document.getElementById('sideQuestBtn').addEventListener('click',()=>{
+  document.getElementById('pageFade').classList.add('show');
+  setTimeout(()=>{location.href='15.html';},950);
+});
+</script>
+</body>
+</html>

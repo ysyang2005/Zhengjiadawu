@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>鏡海導覽・鄭家大屋｜惜求歸位</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","PingFang SC","Microsoft JhengHei","STKaiti",serif;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+#game{position:fixed;top:0;left:0;width:100%;height:100%;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px);overflow:hidden}
+
+/* 背景 */
+.bg-layer{position:absolute;inset:0;z-index:1;background-image:url('bg_yuqing.png');background-size:cover;background-position:center;background-repeat:no-repeat;opacity:0;transition:opacity .8s ease}
+.bg-layer.show{opacity:1}
+.bg-layer::before{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.35) 0%,transparent 25%,transparent 60%,rgba(0,0,0,.62) 100%)}
+
+/* 場景標籤 */
+.scene-label{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;z-index:15;background:rgba(20,16,12,.75);border:1px solid rgba(180,150,100,.4);color:#d4a857;font-size:12px;padding:4px 10px;border-radius:14px;letter-spacing:1px}
+
+/* 鄭觀應立繪 */
+#zheng{position:absolute;left:0;bottom:calc(env(safe-area-inset-bottom,0px) + 138px);z-index:10;height:48vh;transform:translateX(-110%);transition:transform .7s ease,opacity .6s ease;pointer-events:none}
+#zheng.show{transform:translateX(0)}
+#zheng.out{opacity:0;transform:translateX(-6%)}
+
+/* 對話框 */
+.dialog-box{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);left:12px;right:12px;min-height:104px;background:rgba(28,24,20,.94);border:1px solid rgba(180,150,100,.35);border-radius:10px;padding:14px 16px;z-index:40;pointer-events:auto;opacity:0;transition:opacity .4s ease}
+.dialog-box.show{opacity:1}
+.speaker-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.speaker-avatar{width:40px;height:40px;border-radius:50%;object-fit:cover;object-position:top center;border:2px solid rgba(200,170,120,.5);flex-shrink:0}
+.speaker-name{color:#d4a857;font-size:15px;font-weight:700}
+.dialog-text{color:#e8dcc8;font-size:15px;line-height:1.65;min-height:48px}
+.dialog-hint{position:absolute;bottom:8px;right:14px;color:#8a7a60;font-size:18px;animation:hintBlink 1.2s ease-in-out infinite}
+@keyframes hintBlink{0%,100%{opacity:.3}50%{opacity:1}}
+
+/* 提示小標 */
+#puzzleTip{position:absolute;top:calc(env(safe-area-inset-top,0px) + 24px);left:50%;transform:translateX(-50%);z-index:32;color:#d4a857;font-size:13px;letter-spacing:2px;text-shadow:0 1px 2px #000;white-space:nowrap}
+
+/* 對聯區（豎排兩列） */
+#puzzle{position:absolute;inset:0;z-index:30;display:none;flex-direction:column;align-items:center;justify-content:flex-start;padding:calc(env(safe-area-inset-top,0px) + 60px) 16px calc(env(safe-area-inset-bottom,0px) + 150px);pointer-events:none}
+#puzzle.show{display:flex;animation:zoomIn .8s ease;pointer-events:none}
+/* 僅歸位幕開放空格點擊；尋聯幕空格不可點 */
+#puzzle.play .cchar.slot{pointer-events:auto}
+@keyframes zoomIn{from{opacity:0;transform:scale(1.18)}to{opacity:1;transform:scale(1)}}
+#couplet{display:flex;gap:34px;justify-content:center;padding:10px 14px;border:1px solid rgba(180,150,100,.28);border-radius:12px;background:rgba(20,16,12,.55);box-shadow:0 0 26px rgba(0,0,0,.4);transition:opacity .8s ease}
+#couplet.dim{opacity:0;pointer-events:none}
+.couplet-col{display:flex;flex-direction:column;gap:5px}
+.cchar{width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:700;color:#e8dcc8;font-family:"PingFang TC","STKaiti",serif;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.cchar.slot{border:1.5px dashed rgba(212,168,87,.55);border-radius:6px;color:#b7a26a;font-size:19px;cursor:pointer;transition:border-color .2s ease,transform .2s ease}
+.cchar.slot.hot{border-color:#ffd97a;box-shadow:0 0 10px rgba(255,215,120,.45)}
+.cchar.slot.done{border:1.5px solid rgba(255,215,120,.9);color:#ffd97a;font-size:22px;text-shadow:0 0 12px rgba(255,215,120,.85);animation:pop .35s ease}
+.cchar.fixed{opacity:.96}
+@keyframes pop{from{transform:scale(.6);opacity:.4}to{transform:scale(1);opacity:1}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}50%{transform:translateX(5px)}75%{transform:translateX(-4px)}}
+
+/* 字塊區：固定兩行 × 每行四字 */
+#tiles{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 26px);transform:translateX(-50%);width:92vw;z-index:50;display:none;flex-direction:column;align-items:center;gap:12px}
+#tiles .tile-row{display:flex;gap:12px;justify-content:center}
+.tile{width:64px;height:64px;display:flex;align-items:center;justify-content:center;background:rgba(58,44,26,.95);border:1px solid rgba(212,168,87,.55);border-radius:10px;color:#f0dfc0;font-size:26px;font-weight:700;font-family:"PingFang TC","STKaiti",serif;cursor:pointer;transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease;box-shadow:0 3px 8px rgba(0,0,0,.4)}
+.tile:active{transform:scale(.92)}
+.tile.selected{border-color:#ffd97a;box-shadow:0 0 12px rgba(255,215,120,.55);transform:scale(1.06)}
+.tile.used{opacity:.22;pointer-events:none}
+
+/* 碎片卡片：與 10.html 同款（item-card 樣式） */
+#histCard{position:absolute;inset:0;z-index:60;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;padding:24px}
+#histCard.show{display:flex}
+.item-card{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(.9);width:min(82vw,360px);background:rgba(44,30,16,.98);border:2px solid #e3b25c;border-radius:14px;padding:22px 18px;text-align:center;z-index:50;opacity:0;pointer-events:none;transition:opacity .35s ease,transform .35s ease;box-shadow:0 18px 50px rgba(0,0,0,.6)}
+.item-card.show{opacity:1;transform:translate(-50%,-50%) scale(1);pointer-events:auto}
+.item-fig{position:relative;width:118px;margin:0 auto 12px}
+.item-icon{width:118px;height:118px;object-fit:contain;display:block;filter:drop-shadow(0 6px 16px rgba(0,0,0,.45))}
+.item-tag{position:absolute;top:-6px;right:-10px;background:#b23a1e;color:#fff;font-size:11px;font-weight:700;letter-spacing:.05em;border-radius:10px;padding:2px 9px;box-shadow:0 3px 8px rgba(0,0,0,.4)}
+.item-name{color:#ffe9b8;font-size:21px;font-weight:700;letter-spacing:.1em;margin-bottom:10px}
+.item-body{color:#f0e2c4;font-size:14px;line-height:1.85;text-align:left;background:rgba(255,236,190,.08);border-left:3px solid #d4a857;border-radius:4px;padding:10px 12px;margin-bottom:10px;white-space:pre-line}
+.item-desc{color:#e8d5b0;font-size:13px;line-height:1.7}
+.item-tip{margin-top:14px;color:#d4a857;font-size:12px;letter-spacing:.15em;animation:hintBlink 1.2s ease-in-out infinite}
+.tile.used-fail{animation:shake .4s ease;border-color:rgba(200,120,90,.8)}
+.tile.picked{border-color:#ffd97a;box-shadow:0 0 14px rgba(255,215,120,.7);transform:scale(1.06);background:rgba(88,66,36,.95)}
+.tile.locked{border-color:#ffd97a;background:rgba(120,90,40,.95);color:#ffd97a;box-shadow:0 0 18px rgba(255,215,120,.85);animation:pop .4s ease}
+.tile.shake{animation:shake .45s ease;border-color:rgba(200,120,90,.85)}
+
+/* 完成狀態：四惜四求泛金 */
+#couplet.done .cchar.slot.done{animation:goldPulse 1.8s ease-in-out infinite}
+@keyframes goldPulse{0%,100%{box-shadow:0 0 8px rgba(255,215,120,.5)}50%{box-shadow:0 0 16px rgba(255,215,120,.95)}}
+
+/* Toast */
+#toast{position:absolute;left:50%;top:46%;transform:translateX(-50%);z-index:70;background:rgba(20,16,12,.92);border:1px solid rgba(180,150,100,.4);color:#e8dcc8;font-size:14px;padding:10px 22px;border-radius:18px;opacity:0;pointer-events:none;transition:opacity .3s ease;white-space:nowrap;text-align:center;max-width:80vw}
+#toast.show{opacity:1}
+
+/* 轉場 */
+.fade-overlay{position:absolute;inset:0;background:#000;z-index:100;opacity:1;transition:opacity .8s ease;pointer-events:none}
+.fade-overlay.light{opacity:0}
+</style>
+</head>
+<body>
+<div id="game">
+  <div class="bg-layer" id="bgLayer"></div>
+  <div class="scene-label" id="sceneLabel">第二禮・對聯之問</div>
+  <img id="zheng" src="zheng_portrait.png" alt="鄭觀應">
+
+  <div id="puzzleTip" style="display:none"></div>
+  <div id="puzzle">
+    <div id="couplet">
+      <div class="couplet-col" id="colUp"></div>
+      <div class="couplet-col" id="colDown"></div>
+    </div>
+  </div>
+  <div id="tiles"></div>
+
+  <div id="histCard">
+    <div class="item-card" id="itemCard">
+      <div class="item-fig">
+        <img class="item-icon" id="itemIcon" src="item_swsy.png" alt="">
+        <span class="item-tag" id="itemTag"></span>
+      </div>
+      <div class="item-name" id="itemName"></div>
+      <div class="item-body" id="itemBody"></div>
+      <div class="item-desc" id="itemDesc"></div>
+      <div class="item-tip">點擊繼續</div>
+    </div>
+  </div>
+
+  <div class="dialog-box" id="dlgBox">
+    <div class="speaker-row">
+      <img class="speaker-avatar" id="dlgAvatar" src="zheng_portrait.png" alt="">
+      <span class="speaker-name" id="dlgName">鄭觀應</span>
+    </div>
+    <div class="dialog-text" id="dlgText"></div>
+    <div class="dialog-hint" id="dlgHint" style="display:none">▼</div>
+  </div>
+
+  <div id="toast"></div>
+
+  <audio id="voiceQ" src="zheng_duilian_q.wav" preload="auto"></audio>
+  <audio id="voiceSeek" src="zheng_find_couplet.wav" preload="auto"></audio>
+  <audio id="voiceCrux" src="zheng_crux_question.wav" preload="auto"></audio>
+  <audio id="voicePoint" src="zheng_point_answer.wav" preload="auto"></audio>
+  <audio id="voiceHist" src="zheng_hist_line.wav" preload="auto"></audio>
+  <audio id="voiceFrag2" src="zheng_frag2.wav" preload="auto"></audio>
+  <audio id="voiceSelf1" src="zheng_self1.wav" preload="auto"></audio>
+  <audio id="voiceSelf2" src="zheng_self2.wav" preload="auto"></audio>
+  <audio id="voiceSelf3" src="zheng_self3.wav" preload="auto"></audio>
+  <audio id="voiceSelf4" src="zheng_self4.wav" preload="auto"></audio>
+  <audio id="voiceSelf5" src="zheng_self5.wav" preload="auto"></audio>
+  <audio id="bgm" src="bgm_moongate.wav" loop preload="auto"></audio>
+</div>
+<div class="fade-overlay" id="fadeOverlay"></div>
+
+<script>
+/* ============================================================
+   畫面 11.5 → 11.6 → 12 合併：問話 → 尋聯 → 歸位
+   ============================================================ */
+const LINE_Q='话说回来，年轻人，从这幅对联上，尔可看出我郑家最重视的是什么么？';
+const LINE_SEEK='先找到這幅對聯，看看如何把字給補上';
+const LINE_CRUX='不错不错，那麼，在這副聯中，最要緊的，又是哪兩個字？';
+const LINE_POINT='没错，惜食惜衣，非為惜財，全為惜福；求名求利，須先求己，莫去求人';
+const LINE_HIST='此聯藏着我鄭家的立身之本——你既解得，便收下它吧。';
+/* 碎片 2/3：重點二・議院（與 10.html 碎片1/3「商戰」不同觀點；格式同 10.html） */
+const FRAG2_NAME='盛世危言碎片';
+const FRAG2_TAG='2/3';
+const FRAG2_BODY='重點二・議院\n「欲張國勢，莫要於得民心；欲得民心，莫要於通下情；欲通下情，莫要於設議院。」';
+const FRAG2_DESC='《盛世危言》三大重點之二，殘頁一角。';
+/* 畫面17：鄭觀應五句自述（惜→求己→通下情→求名求利→惜求合一） */
+const SELF_LINES=[
+  '老夫幼時便知惜食惜衣，那是家訓；可真正催我寫《盛世危言》的，是一個更大的「惜」——痛惜中朝之失策。',
+  '下聯說「求名求利須先求己」——家如此，國亦如此。不求列強，不倚洋器，先求己身；一國求己，便得上下同心。',
+  '可上下若不通，力便分而弱。故曰：欲張國勢，莫要於得民心；欲得民心，莫要於通下情；欲通下情，莫要於設議院。',
+  '老夫一生求名求利，卻從不求人。商人求名，當以公正立身、由公舉入議院——不失其求名之望，方是正途。',
+  '惜者，守也；求者，進也。因惜而憂，因求而作——這幅對聯，便是老夫的一生。'
+];
+
+/* 上聯：惜[食]惜[衣]不獨惜[財]還惜[福]；下聯：求[名]求[利]必須求[己]免求[人] */
+const UP_SRC =['惜','食','惜','衣','不','獨','惜','財','還','惜','福'];
+const DOWN_SRC=['求','名','求','利','必','須','求','己','免','求','人'];
+const SLOTS=[
+  {col:'up',  idx:1, ans:'食'},
+  {col:'up',  idx:3, ans:'衣'},
+  {col:'up',  idx:7, ans:'財'},
+  {col:'up',  idx:10,ans:'福'},
+  {col:'down',idx:1, ans:'名'},
+  {col:'down',idx:3, ans:'利'},
+  {col:'down',idx:7, ans:'己'},
+  {col:'down',idx:10,ans:'人'}
+];
+const TILES=['人','食','利','財','己','衣','名','福']; /* 打亂序 */
+
+const voiceQ=document.getElementById('voiceQ');
+const voiceSeek=document.getElementById('voiceSeek');
+const voiceCrux=document.getElementById('voiceCrux');
+const voicePoint=document.getElementById('voicePoint');
+const voiceHist=document.getElementById('voiceHist');
+const voiceFrag2=document.getElementById('voiceFrag2');
+const selfVoices=[1,2,3,4,5].map(n=>document.getElementById('voiceSelf'+n));
+const dlgText=document.getElementById('dlgText');
+const dlgHint=document.getElementById('dlgHint');
+
+let phase='q';            /* q=問話 / seek=尋聯 / play=歸位 / crux=關鍵二字 / point=點題 */
+let timer=null,curLine='',lineDone=false,voiceEnded=false;
+let guideDone=false,guideVoiceEnded=false;
+let voiceQStarted=false,voiceSeekStarted=false;   /* 首次點擊才開始播配音 */
+let cruxVoiceStarted=false,cruxVoiceEnded=false;
+let pointVoiceStarted=false,pointVoiceEnded=false;
+let histVoiceStarted=false,histVoiceEnded=false;
+let frag2Started=false;
+let selfIdx=0,selfLineDone=false,selfVoiceEnded=false,selfVoiceStarted=false,selfTimer=null;
+let selectedTile=null,placed=0;
+
+/* ---------- 打字機 ---------- */
+function typeWriter(text,onDone){
+  clearInterval(timer);
+  dlgText.textContent='';let i=0;
+  timer=setInterval(()=>{
+    if(i<text.length){dlgText.textContent+=text[i];i++;}
+    else{clearInterval(timer);timer=null;onDone();}
+  },35);
+}
+function playVoice(v,onFail){
+  try{
+    v.currentTime=0;
+    const p=v.play();
+    if(p&&p.catch){
+      p.catch(()=>{
+        /* 被拒：極短延遲內重試一次（部分內核首次 play 會因上一個音頻剛 pause 被拒，二次即成功） */
+        setTimeout(()=>{
+          try{
+            const p2=v.play();
+            if(p2&&p2.catch){p2.catch(()=>{if(onFail)onFail();});}
+          }catch(e2){if(onFail)onFail();}
+        },60);
+      });
+    }
+  }catch(e){
+    if(onFail)onFail();
+  }
+}
+function showHint(){dlgHint.style.display='block';}
+
+/* ---------- 幕1：問話 ---------- */
+voiceQ.addEventListener('ended',()=>{voiceEnded=true;if(lineDone)showHint();});
+voiceQ.addEventListener('error',()=>{setTimeout(()=>{voiceEnded=true;if(lineDone)showHint();},400);});
+voiceCrux.addEventListener('error',()=>{setTimeout(()=>{cruxVoiceEnded=true;if(lineDone)showHint();},400);});
+/* 家訓那句：配音自然播完也要放行（原本只靠點擊打斷，播完會卡死） */
+voiceHist.addEventListener('ended',()=>{histVoiceEnded=true;if(lineDone)showHint();});
+voiceHist.addEventListener('error',()=>{setTimeout(()=>{histVoiceEnded=true;if(lineDone)showHint();},400);});
+function startQ(){
+  document.getElementById('sceneLabel').textContent='第二禮・對聯之問';
+  document.getElementById('dlgBox').classList.add('show');
+  dlgHint.style.display='none';
+  lineDone=false;voiceEnded=false;voiceQStarted=false;
+  /* 先打字機出全句；配音等首次點擊才播 */
+  typeWriter(LINE_Q,()=>{lineDone=true;if(voiceEnded)showHint();});
+}
+
+/* ---------- 幕2：尋聯 ---------- */
+voiceSeek.addEventListener('ended',()=>{guideVoiceEnded=true;if(guideDone)showHint();});
+voiceSeek.addEventListener('error',()=>{setTimeout(()=>{guideVoiceEnded=true;if(guideDone)showHint();},400);});
+function enterSeek(){
+  phase='seek';
+  document.getElementById('sceneLabel').textContent='第二禮・尋聯';
+  /* 先出上下聯 */
+  document.getElementById('puzzle').classList.add('show');
+  buildCouplet();
+  /* 再出引導台詞＋配音（enterSeek 由點擊▼同步觸發，仍在用戶手勢內，可直接播） */
+  document.getElementById('dlgBox').classList.add('show');
+  dlgHint.style.display='none';
+  guideDone=false;guideVoiceEnded=false;voiceSeekStarted=true;
+  typeWriter(LINE_SEEK,()=>{guideDone=true;if(guideVoiceEnded)showHint();});
+  playVoice(voiceSeek,()=>{guideVoiceEnded=true;if(guideDone)showHint();});
+}
+
+/* ---------- 幕3：歸位 ---------- */
+function enterPlay(){
+  phase='play';
+  document.getElementById('sceneLabel').textContent='第二禮・歸位';
+  document.getElementById('dlgBox').classList.remove('show');
+  document.getElementById('dlgBox').style.pointerEvents='none';   /* 徹底放開點擊，不擋字塊 */
+  document.getElementById('dlgBox').style.display='none';
+  dlgHint.style.display='none';
+  document.getElementById('zheng').classList.add('out');
+  document.getElementById('puzzle').classList.add('play');   /* 歸位幕才開放空格點擊 */
+  document.getElementById('puzzleTip').textContent='先點字塊，再點對聯空格';
+  document.getElementById('puzzleTip').style.display='block';
+  document.getElementById('tiles').style.display='flex';
+  buildTiles();
+  bindSlots();
+}
+
+function buildCouplet(){
+  const colUp=document.getElementById('colUp'),colDown=document.getElementById('colDown');
+  colUp.innerHTML='';colDown.innerHTML='';
+  UP_SRC.forEach((ch,i)=>{
+    const d=document.createElement('div');
+    const isSlot=SLOTS.some(s=>s.col==='up'&&s.idx===i);
+    d.className='cchar'+(isSlot?' slot':' fixed');
+    if(isSlot){d.dataset.col='up';d.dataset.idx=i;d.textContent='□';}
+    else{d.textContent=ch;}
+    colUp.appendChild(d);
+  });
+  DOWN_SRC.forEach((ch,i)=>{
+    const d=document.createElement('div');
+    const isSlot=SLOTS.some(s=>s.col==='down'&&s.idx===i);
+    d.className='cchar'+(isSlot?' slot':' fixed');
+    if(isSlot){d.dataset.col='down';d.dataset.idx=i;d.textContent='□';}
+    else{d.textContent=ch;}
+    colDown.appendChild(d);
+  });
+}
+function buildTiles(){
+  const box=document.getElementById('tiles');
+  box.innerHTML='';
+  const chars=TILES.slice();
+  const row1=chars.slice(0,4),row2=chars.slice(4,8);
+  [row1,row2].forEach(row=>{
+    const r=document.createElement('div');
+    r.className='tile-row';
+    row.forEach(ch=>{
+      const t=document.createElement('div');
+      t.className='tile';t.dataset.char=ch;t.textContent=ch;
+      t.addEventListener('pointerdown',()=>{
+        if(t.classList.contains('used'))return;
+        if(selectedTile){selectedTile.classList.remove('selected');}
+        selectedTile=t;t.classList.add('selected');
+      });
+      r.appendChild(t);
+    });
+    box.appendChild(r);
+  });
+}
+function slotEl(col,idx){return document.querySelector('.cchar.slot[data-col="'+col+'"][data-idx="'+idx+'"]');}
+function onSlotTap(col,idx){
+  if(!selectedTile){
+    const t=document.getElementById('toast');
+    t.textContent='先點下面一個字塊，再點對聯空格';
+    t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'),1800);
+    return;
+  }
+  const s=slotEl(col,idx);
+  if(!s||s.classList.contains('done'))return;
+  const ans=SLOTS.find(x=>x.col===col&&x.idx===idx).ans;
+  if(selectedTile.dataset.char===ans){
+    s.textContent=ans;
+    s.classList.add('done');
+    selectedTile.classList.add('used');
+    selectedTile.classList.remove('selected');
+    selectedTile=null;
+    placed++;
+    if(placed===SLOTS.length){completePuzzle();}
+  }else{
+    selectedTile.classList.remove('selected');
+    selectedTile.classList.add('used-fail');
+    const bad=selectedTile;
+    setTimeout(()=>{bad.classList.remove('used-fail');bad.classList.add('selected');selectedTile=bad;},420);
+  }
+}
+function bindSlots(){
+  document.querySelectorAll('.cchar.slot').forEach(s=>{
+    s.addEventListener('pointerdown',()=>{
+      if(s.classList.contains('done'))return;
+      s.classList.add('hot');
+      setTimeout(()=>s.classList.remove('hot'),260);
+      onSlotTap(s.dataset.col,parseInt(s.dataset.idx,10));
+    });
+  });
+}
+function completePuzzle(){
+  document.getElementById('couplet').classList.add('done');
+  document.getElementById('puzzleTip').textContent='聯已歸位';
+  setTimeout(()=>{
+    const t=document.getElementById('toast');
+    t.textContent='惜食惜衣、求名求利——四惜四求，盡數歸位。';
+    t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'),2200);
+    setTimeout(()=>{
+      /* 鄭觀應回歸，問關鍵二字（配音等首次點擊才播） */
+      phase='crux';
+      cruxVoiceStarted=false;cruxVoiceEnded=false;
+      document.getElementById('zheng').classList.remove('out');
+      document.getElementById('zheng').classList.add('show');
+      document.getElementById('tiles').style.display='none';   /* 收走歸位字塊，畫面只剩對話 */
+      const box=document.getElementById('dlgBox');
+      box.style.pointerEvents='auto';
+      box.style.display='block';
+      box.classList.add('show');
+      dlgHint.style.display='none';
+      lineDone=false;
+      typeWriter(LINE_CRUX,()=>{lineDone=true;});
+    },2800);
+  },700);
+}
+
+/* ---------- 幕4：點選兩字（答案：福・己） ---------- */
+const PICK_ANSWER=['福','己'];
+let pickedTiles=[];   /* 已選中的字塊元素 */
+function enterPick(){
+  phase='pick';
+  document.getElementById('sceneLabel').textContent='第二禮・惜求';
+  /* 對聯半透明淡出 */
+  document.getElementById('couplet').classList.add('dim');
+  /* 字塊重新打亂浮現（每次進入隨機次序） */
+  document.getElementById('dlgBox').style.pointerEvents='none';
+  document.getElementById('dlgBox').style.display='none';
+  document.getElementById('zheng').classList.add('out');   /* 鄭觀應暫退，讓玩家作答 */
+  document.getElementById('puzzleTip').textContent='惜到最後是？求到最後是？——點選最要緊的兩個字';
+  document.getElementById('puzzleTip').style.display='block';
+  buildPickTiles();
+  document.getElementById('tiles').style.display='flex';
+  pickedTiles=[];
+}
+function buildPickTiles(){
+  const box=document.getElementById('tiles');
+  box.innerHTML='';
+  const chars=TILES.slice().sort(()=>Math.random()-.5);   /* 重新打亂 */
+  const rows=[chars.slice(0,4),chars.slice(4,8)];
+  rows.forEach(row=>{
+    const r=document.createElement('div');
+    r.className='tile-row';
+    row.forEach(ch=>{
+      const t=document.createElement('div');
+      t.className='tile';t.dataset.char=ch;t.textContent=ch;
+      t.addEventListener('pointerdown',()=>{
+        if(t.classList.contains('picked'))return;
+        if(pickedTiles.length>=2){
+          const toast=document.getElementById('toast');
+          toast.textContent='只能點兩個字';
+          toast.classList.add('show');
+          setTimeout(()=>toast.classList.remove('show'),1600);
+          return;
+        }
+        t.classList.add('picked');
+        pickedTiles.push(t);
+        if(pickedTiles.length===2){
+          const chosen=pickedTiles.map(x=>x.dataset.char);
+          const ok=PICK_ANSWER.every(a=>chosen.includes(a))&&chosen.every(c=>PICK_ANSWER.includes(c));
+          if(ok){
+            setTimeout(()=>completePick(),450);
+          }else{
+            const toast=document.getElementById('toast');
+            toast.textContent='再想想——惜到最後是福，求到最後是己';
+            toast.classList.add('show');
+            setTimeout(()=>toast.classList.remove('show'),2200);
+            const bad=pickedTiles.slice();
+            setTimeout(()=>{
+              bad.forEach(x=>x.classList.add('shake'));
+              setTimeout(()=>{
+                bad.forEach(x=>{x.classList.remove('shake','picked');});
+                pickedTiles=[];
+              },450);
+            },2500);
+          }
+        }
+      });
+      r.appendChild(t);
+    });
+    box.appendChild(r);
+  });
+}
+function completePick(){
+  /* 答對：福・己金色鎖定 → 進入點題幕 */
+  pickedTiles.forEach(t=>{
+    t.classList.remove('picked');
+    t.classList.add('locked');
+  });
+  pickedTiles=[];
+  const toast=document.getElementById('toast');
+  toast.textContent='正是——惜福・求己。';
+  toast.classList.add('show');
+  setTimeout(()=>{
+    toast.classList.remove('show');
+    /* 八字塊消失 */
+    document.getElementById('tiles').style.display='none';
+    document.getElementById('couplet').classList.remove('dim');
+    document.getElementById('puzzleTip').style.display='none';
+    /* 鄭觀應自左滑入歸位 */
+    document.getElementById('zheng').classList.remove('out');
+    document.getElementById('zheng').classList.add('show');
+    /* 點題台詞＋配音（首次點擊才播） */
+    phase='point';
+    pointVoiceStarted=false;pointVoiceEnded=false;lineDone=false;
+    const box=document.getElementById('dlgBox');
+    box.style.pointerEvents='auto';
+    box.style.display='block';
+    box.classList.add('show');
+    dlgHint.style.display='none';
+    typeWriter(LINE_POINT,()=>{lineDone=true;});
+  },1600);
+}
+
+/* ---------- 幕6：遞交碎片（畫面16） ---------- */
+function enterHist(){
+  phase='hist';
+  document.getElementById('sceneLabel').textContent='第二禮・惜求・家訓';
+  document.getElementById('dlgBox').classList.add('show');
+  dlgHint.style.display='none';
+  histVoiceStarted=false;histVoiceEnded=false;lineDone=false;frag2Started=false;
+  /* 先出鄭觀應台詞＋配音；碎片卡等台詞播完、點▼後才彈出 */
+  typeWriter(LINE_HIST,()=>{lineDone=true;if(histVoiceEnded)showHint();});
+  playVoice(voiceHist,()=>{histVoiceEnded=true;if(lineDone)showHint();});
+  /* 超時兜底：ended 事件可能不來，按配音時長（10.4s）強制放行 */
+  setTimeout(()=>{histVoiceEnded=true;if(lineDone)showHint();},11500);
+}
+setTimeout(()=>{document.getElementById('fadeOverlay').classList.add('light');document.getElementById('bgLayer').classList.add('show');},100);
+setTimeout(()=>{document.getElementById('zheng').classList.add('show');},350);
+setTimeout(()=>{startQ();},1200);
+
+/* ---------- 對話框點擊：狀態機推進（全局兜底：任何異常不卡死） ---------- */
+document.getElementById('dlgBox').addEventListener('pointerdown',()=>{
+  try{
+  if(phase==='play')return;
+  if(phase==='q'){
+    /* 首次點擊：開始播放問話配音（附超時兜底：播不完也放行） */
+    if(!voiceQStarted){
+      voiceQStarted=true;
+      voiceEnded=false;
+      playVoice(voiceQ,()=>{voiceEnded=true;if(lineDone)showHint();});
+      setTimeout(()=>{voiceEnded=true;if(lineDone)showHint();},9000);   /* 問話配音＋餘量 */
+      return;
+    }
+    /* 未實際播放（currentTime停0）：視為已播完，直接放行 */
+    if(voiceQ.paused&&voiceQ.currentTime===0){voiceEnded=true;}
+    /* 配音播放中：點擊跳過剩餘配音 */
+    if(!voiceQ.paused){voiceQ.pause();voiceEnded=true;}
+    if(!lineDone){
+      clearInterval(timer);timer=null;
+      dlgText.textContent=LINE_Q;
+      lineDone=true;
+      if(voiceEnded)showHint();
+      return;
+    }
+    if(!voiceEnded)return;
+    /* 問話播完 → 尋聯 */
+    dlgHint.style.display='none';
+    dlgText.textContent='';
+    enterSeek();
+    return;
+  }
+  if(phase==='seek'){
+    /* 配音已自動開播（進入時），點擊可跳過剩餘配音 */
+    if(!voiceSeek.paused){voiceSeek.pause();guideVoiceEnded=true;}
+    if(!guideDone){
+      clearInterval(timer);timer=null;
+      dlgText.textContent=LINE_SEEK;
+      guideDone=true;
+      if(guideVoiceEnded)showHint();
+      return;
+    }
+    if(!guideVoiceEnded)return;
+    /* 尋聯播完 → 歸位 */
+    enterPlay();
+    return;
+  }
+  if(phase==='crux'){
+    /* 首次點擊：開始播放關鍵二字配音（附超時兜底：播不完也放行） */
+    if(!cruxVoiceStarted){
+      cruxVoiceStarted=true;
+      cruxVoiceEnded=false;
+      playVoice(voiceCrux,()=>{cruxVoiceEnded=true;if(lineDone)showHint();});
+      setTimeout(()=>{cruxVoiceEnded=true;if(lineDone)showHint();},8600);   /* 配音7.3s＋餘量 */
+      return;
+    }
+    /* 未實際播放（currentTime停0）：視為已播完，直接放行 */
+    if(voiceCrux.paused&&voiceCrux.currentTime===0){cruxVoiceEnded=true;}
+    /* 配音播放中：點擊跳過剩餘配音 */
+    if(!voiceCrux.paused){voiceCrux.pause();cruxVoiceEnded=true;}
+    if(!lineDone){
+      clearInterval(timer);timer=null;
+      dlgText.textContent=LINE_CRUX;
+      lineDone=true;
+      if(cruxVoiceEnded)showHint();
+      return;
+    }
+    if(!cruxVoiceEnded)return;
+    /* 關鍵二字問題播完 → 點選兩字 */
+    dlgHint.style.display='none';
+    enterPick();
+    return;
+  }
+  if(phase==='point'){
+    /* 首次點擊：播放點題配音（附超時兜底） */
+    if(!pointVoiceStarted){
+      pointVoiceStarted=true;
+      pointVoiceEnded=false;
+      playVoice(voicePoint,()=>{pointVoiceEnded=true;if(lineDone)showHint();});
+      setTimeout(()=>{pointVoiceEnded=true;if(lineDone)showHint();},9000);   /* 配音7.6s＋餘量 */
+      return;
+    }
+    /* 未實際播放（currentTime停0）：視為已播完，直接放行 */
+    if(voicePoint.paused&&voicePoint.currentTime===0){pointVoiceEnded=true;}
+    /* 配音播放中：點擊跳過剩餘配音 */
+    if(!voicePoint.paused){voicePoint.pause();pointVoiceEnded=true;}
+    if(!lineDone){
+      clearInterval(timer);timer=null;
+      dlgText.textContent=LINE_POINT;
+      lineDone=true;
+      if(pointVoiceEnded)showHint();
+      return;
+    }
+    if(!pointVoiceEnded)return;
+    /* 點題播完 → 遞交碎片（畫面16） */
+    dlgHint.style.display='none';
+    enterHist();
+    return;
+  }
+  if(phase==='hist'){
+    /* 配音已自動開播（進入時），點擊可跳過剩餘配音 */
+    if(voiceHist.ended){histVoiceEnded=true;}   /* 已播完但旗標沒翻：補救 */
+    if(!voiceHist.paused){voiceHist.pause();histVoiceEnded=true;}
+    if(!lineDone){
+      clearInterval(timer);timer=null;
+      dlgText.textContent=LINE_HIST;
+      lineDone=true;
+      if(histVoiceEnded)showHint();
+      return;
+    }
+    if(!histVoiceEnded)return;
+    /* 家訓台詞播完 → 彈出碎片卡（格式同10.html） */
+    dlgHint.style.display='none';
+    dlgText.textContent='';
+    const ic=document.getElementById('itemCard');
+    document.getElementById('itemIcon').src='item_swsy.png';
+    document.getElementById('itemTag').textContent=FRAG2_TAG;
+    document.getElementById('itemName').textContent=FRAG2_NAME;
+    document.getElementById('itemBody').textContent=FRAG2_BODY;
+    document.getElementById('itemDesc').textContent=FRAG2_DESC;
+    document.getElementById('histCard').classList.add('show');
+    ic.classList.add('show');
+    return;
+  }
+  if(phase==='self'){
+    /* 配音已自動開播（進入句時），點擊可跳過剩餘配音 */
+    const sv=selfVoices[selfIdx];
+    if(!sv.paused){
+      try{sv.pause();}catch(e){}
+      sv.currentTime=0;
+      selfVoiceEnded=true;
+    }
+    if(!selfLineDone){
+      clearInterval(timer);timer=null;
+      dlgText.textContent=SELF_LINES[selfIdx];
+      selfLineDone=true;
+      if(selfVoiceEnded)showHint();
+      return;
+    }
+    if(!selfVoiceEnded)return;
+    /* 本句播完 → 下一句，或全部播完預留下一步 */
+    dlgHint.style.display='none';
+    dlgText.textContent='';
+    if(selfIdx<4){selfIdx++;showSelfLine(selfIdx);}
+    else{
+      /* 五句自述播完：慢慢變暗至全黑，接 13.html（同頁不黑幕，只在結尾轉頁） */
+      const fo=document.getElementById('fadeOverlay');
+      fo.style.transition='opacity 1.4s ease';
+      fo.classList.remove('light');
+      setTimeout(()=>{location.href='13.html';},1500);
+    }
+  }
+  }catch(err){
+    /* 兜底：任何異常都直接放行到下一步，不卡死 */
+    console.error(err);
+    if(phase==='crux')enterPick();
+    else if(phase==='seek')enterPlay();
+  }
+});
+
+/* ---------- 碎片卡點擊：先播配音，播完/跳過後再點收起 ---------- */
+let fragCardStage=0;
+document.getElementById('itemCard').addEventListener('pointerdown',()=>{
+  if(phase!=='hist')return;
+  try{
+    const zsw=voiceFrag2;
+    if(fragCardStage===0){
+      /* 首次點擊：播放碎片朗讀（附超時兜底） */
+      fragCardStage=1;
+      playVoice(zsw,()=>{});
+      setTimeout(()=>{fragCardStage=2;},11500);   /* 配音10.5s＋餘量 */
+      return;
+    }
+    if(fragCardStage===1 && !zsw.paused && !zsw.ended){return;}   /* 朗讀中：不收起 */
+    /* 播完/跳過後點擊 → 收起卡片，進入鄭觀應五句自述 */
+    document.getElementById('histCard').classList.remove('show');
+    document.getElementById('itemCard').classList.remove('show');
+    enterSelf();
+  }catch(err){console.error(err);}
+});
+
+/* ---------- 幕7：鄭觀應五句自述（畫面17） ---------- */
+/* 各句配音時長＋餘量：12.3/13.2/15.5/13.3/10.3s → 超時兜底 */
+const SELF_TIMEOUTS=[14000,15000,17500,15000,12000];
+function enterSelf(){
+  phase='self';
+  document.getElementById('sceneLabel').textContent='第二禮・惜求・自述';
+  document.getElementById('dlgBox').classList.add('show');
+  selfIdx=0;selfLineDone=false;selfVoiceEnded=false;selfVoiceStarted=false;
+  showSelfLine(0);
+}
+function showSelfLine(i){
+  selfLineDone=false;selfVoiceEnded=false;selfVoiceStarted=false;
+  dlgHint.style.display='none';
+  /* 先啟配音再打字機（配音跟隨台詞自動播放）；均在推進點擊的手勢內，可直接 play */
+  playVoice(selfVoices[i],()=>{selfVoiceEnded=true;if(selfLineDone)showHint();});
+  typeWriter(SELF_LINES[i],()=>{selfLineDone=true;if(selfVoiceEnded)showHint();});
+  /* 超時兜底：ended 事件可能不來（audio play Promise 永久 pending），按時長強制放行 */
+  clearTimeout(selfTimer);
+  selfTimer=setTimeout(()=>{selfVoiceEnded=true;if(selfLineDone)showHint();},SELF_TIMEOUTS[i]);
+}
+
+/* ============ BGM：延續 10.html / 10a.html 同一條音軌 ============ */
+const BGM_VOL=0.18;
+const BGM_KEY='moongateBgmState';
+let bgmReady=false;
+function readBgmState(){
+  try{
+    const raw=sessionStorage.getItem(BGM_KEY);
+    return raw?JSON.parse(raw):null;
+  }catch(e){return null;}
+}
+function saveBgmState(){
+  if(!bgmReady)return;
+  const bgm=document.getElementById('bgm');
+  if(!bgm)return;
+  try{
+    sessionStorage.setItem(BGM_KEY,JSON.stringify({
+      t:bgm.currentTime,
+      muted:bgm.muted,
+      file:bgm.src.split('/').pop()
+    }));
+  }catch(e){}
+}
+function startBgm(){
+  const bgm=document.getElementById('bgm');
+  if(!bgm)return;
+  bgm.volume=BGM_VOL;
+  /* 同一條音軌才還原靜音與播放位置，做到跨頁不從頭播 */
+  const st=readBgmState();
+  if(st&&st.file==='bgm_moongate.wav'){
+    bgm.muted=!!st.muted;
+    const seek=function(){
+      if(isFinite(st.t)&&st.t>=0&&isFinite(bgm.duration)&&st.t<bgm.duration){
+        bgm.currentTime=st.t;
+      }
+    };
+    if(bgm.readyState>=1){seek();}
+    else{bgm.addEventListener('loadedmetadata',seek,{once:true});}
+  }
+  bgmReady=true;
+  const p=bgm.play();
+  if(p&&typeof p.catch==='function'){
+    p.catch(function(){
+      const once=function(){
+        document.removeEventListener('pointerdown',once);
+        document.removeEventListener('click',once);
+        bgm.play().catch(function(){});
+      };
+      document.addEventListener('pointerdown',once);
+      document.addEventListener('click',once);
+    });
+  }
+  bgm.addEventListener('timeupdate',saveBgmState);
+  window.addEventListener('pagehide',saveBgmState);
+  window.addEventListener('beforeunload',saveBgmState);
+}
+startBgm();
+</script>
+</body>
+</html>
